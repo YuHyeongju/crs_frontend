@@ -3,7 +3,7 @@
 import React from 'react';
 import './App.css';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { FaSearch } from 'react-icons/fa';
+import { FaSearch } from 'react-icons/fa'; /* 검색 아이콘 사용  */
 
 // React Icons의 지도 핀 아이콘 임포트 (로고용)
 import { FaMapMarkerAlt } from 'react-icons/fa'; // 이 부분이 없으면 추가해주세요.
