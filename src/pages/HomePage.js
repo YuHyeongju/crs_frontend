@@ -1,79 +1,125 @@
 // src/pages/HomePage.js
-import React, { useEffect, useRef, useState } from 'react'; // useState 훅은 필수입니다.
-import KakaoMapWithControlsAndType from '../components/KakaoMapWithControlsAndType'; // 컨트롤 버튼 컴포넌트 임포트
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import MyLocationComponent from '../components/CurrentLocation'; // 또는 '../components/CurrentLocation'; 파일명에 맞춰주세요.
 
 const HomePage = () => {
-  // 지도를 표시할 div 요소를 참조하기 위한 ref
-  const mapContainer = useRef(null); 
+  const [mapInstance, setMapInstance] = useState(null);
+  const [currentUserCoords, setCurrentUserCoords] = useState(null);
+  const mapContainerRef = useRef(null);
+  const userLocationMarkerRef = useRef(null);
 
-  // 지도 인스턴스를 저장할 상태
-  const [mapInstance, setMapInstance] = useState(null); 
+  const handleLocationUpdate = useCallback((coords) => {
+    setCurrentUserCoords(coords);
+  }, []);
 
+  // 지도 초기화 (최초 1회만 실행)
   useEffect(() => {
-    // Kakao Maps SDK가 로드되었는지, 지도 컨테이너가 준비되었는지,
-    // 그리고 아직 지도 인스턴스가 생성되지 않았을 때만 지도를 초기화합니다.
-    if (window.kakao && window.kakao.maps && mapContainer.current && !mapInstance) {
-      // 지도 생성 옵션 설정
-      const options = {
-        center: new window.kakao.maps.LatLng(35.1585, 129.0601), // 예시: 부산 중심 좌표
-        level: 3 // 지도의 확대 레벨
-      };
+    console.log("HomePage: 지도 초기화 useEffect 실행.");
+    if (mapContainerRef.current && window.kakao && window.kakao.maps) {
+      window.kakao.maps.load(() => {
+        console.log("HomePage: 카카오 맵 SDK 로드 완료.");
+        
+        // --- 제공해주신 카카오맵 기본 초기화 코드를 const로 변환하여 통합 ---
+        const mapContainer = mapContainerRef.current; // 지도를 표시할 div
+        const mapOption = {
+            center: new window.kakao.maps.LatLng(33.450701, 126.570667), // 지도의 중심좌표 (제주 카카오 본사)
+            level: 3 // 지도의 확대 레벨
+        };
+        
+        const map = new window.kakao.maps.Map(mapContainer, mapOption); // 지도를 생성합니다
+        setMapInstance(map); // 지도 인스턴스를 상태에 저장
+        console.log("HomePage: 지도 인스턴스 초기화 완료!", map);
 
-      // 지도 생성 (mapContainer.current에 지도를 그립니다)
-      const map = new window.kakao.maps.Map(mapContainer.current, options);
-      
-      // 생성된 지도 인스턴스를 상태에 저장합니다.
-      setMapInstance(map); 
+        // 일반 지도와 스카이뷰로 지도 타입을 전환할 수 있는 지도타입 컨트롤을 생성합니다
+        const mapTypeControl = new window.kakao.maps.MapTypeControl();
+        // 지도에 컨트롤을 추가해야 지도위에 표시됩니다
+        // kakao.maps.ControlPosition은 컨트롤이 표시될 위치를 정의하는데 TOPRIGHT는 오른쪽 위를 의미합니다
+        map.addControl(mapTypeControl, window.kakao.maps.ControlPosition.TOPRIGHT);
+        console.log("HomePage: 지도 타입 컨트롤 추가 완료.");
 
-      // (선택 사항) 마커 추가 예시: (필요하다면 주석을 풀고 사용하세요)
-      // const markerPosition  = new window.kakao.maps.LatLng(35.1585, 129.0601); 
-      // const marker = new window.kakao.maps.Marker({
-      //     position: markerPosition
-      // });
-      // marker.setMap(map);
-
-    } else if (mapInstance) {
-      // 지도가 이미 초기화되었다면 콘솔에 메시지
-      console.log("지도는 이미 초기화되었습니다.");
+        // 지도 확대 축소를 제어할 수 있는 줌 컨트롤을 생성합니다
+        const zoomControl = new window.kakao.maps.ZoomControl();
+        map.addControl(zoomControl, window.kakao.maps.ControlPosition.CENTERRIGHT);
+        console.log("HomePage: 줌 컨트롤 추가 완료.");
+        // --- const 변환 및 컨트롤 추가 끝 ---
+      });
     } else {
-      // SDK 로딩 문제 또는 컨테이너 미준비 에러 메시지
-      console.error("카카오 지도 SDK가 로드되지 않았거나 지도 컨테이너가 준비되지 않았습니다.");
+      console.log("HomePage: 지도 컨테이너 또는 카카오 객체 미준비.", { mapContainerRef: mapContainerRef.current, kakao: window.kakao });
     }
+  }, []);
 
-    // 컴포넌트 언마운트 시 클린업 함수
-    return () => {}; 
-  }, [mapInstance]); // mapInstance 상태가 변경될 때만 이 useEffect가 재실행되도록 설정
+  // 사용자 위치 마커 표시 및 지도 중심 이동
+  useEffect(() => {
+    console.log("HomePage: 사용자 위치 useEffect 실행.");
+    if (mapInstance && currentUserCoords) {
+      const { latitude, longitude } = currentUserCoords;
+      const userLatLng = new window.kakao.maps.LatLng(latitude, longitude);
+
+      // 기존 사용자 마커 업데이트 또는 생성
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.setPosition(userLatLng);
+        console.log("HomePage: 기존 사용자 마커 위치 업데이트됨.");
+      } else {
+        const marker = new window.kakao.maps.Marker({
+          map: mapInstance,
+          position: userLatLng,
+        });
+        userLocationMarkerRef.current = marker;
+        console.log("HomePage: 새 사용자 마커 생성 성공:", marker);
+      }
+      
+      // 지도의 중심을 사용자 위치로 이동
+      mapInstance.setCenter(userLatLng);
+      console.log("HomePage: 지도에 사용자 위치 마커 표시 및 중심 이동 완료.");
+
+    } else {
+      console.log("HomePage: 사용자 마커 표시 조건 불충족: mapInstance 또는 currentUserCoords 미준비.");
+      // 위치 정보가 null이 될 경우 기존 사용자 마커를 제거합니다.
+      if (userLocationMarkerRef.current) {
+        userLocationMarkerRef.current.setMap(null);
+        userLocationMarkerRef.current = null;
+        console.log("HomePage: 위치 정보 미준비로 기존 사용자 마커 제거됨.");
+      }
+    }
+  }, [mapInstance, currentUserCoords]);
 
   return (
-    // 이 div는 지도 컨테이너와 컨트롤 컴포넌트를 포함합니다.
-    // 'position: relative'를 주어, 그 안의 컨트롤 버튼들이 'absolute'로 올바르게 위치하도록 합니다.
-    // 'width'와 'height'를 페이지에 원하는 지도 크기로 조절하세요.
     <div 
       style={{ 
-        position: 'relative', // 이 div 안에서 버튼들이 절대 위치를 가질 수 있도록 합니다.
-        width: '100%',        // 지도가 차지할 너비를 설정하세요 (예: '100%', '800px')
-        height: '91vh',      // 지도가 차지할 높이를 설정하세요 (예: '500px', '70vh')
-        backgroundColor: 'lightgray', // 지도가 로드되기 전 배경색
-        // border: '1px solid #ccc',     // 지도를 명확히 구분하기 위한 테두리 (선택 사항)
-        // margin: '0 auto',             // 중앙 정렬 (선택 사항)
-        // overflow: 'hidden'            // 지도가 이 div 밖으로 넘치지 않도록 할 때 사용 (필요시)
+        position: 'relative', 
+        width: '100vw',
+        height: '93vh',
+        overflow: 'hidden'
       }}
     >
-      {/* 지도가 실제로 그려질 내부 div입니다. 이 div에 'ref'를 연결합니다. */}
       <div 
-        ref={mapContainer} 
+        id="map" 
+        ref={mapContainerRef} 
         style={{ 
           width: '100%', 
-          height: '100%', // 부모 div의 100% 높이와 너비를 채웁니다.
-        }} 
+          height: '100%', 
+          backgroundColor: 'lightgray' 
+        }}
       >
-        {/* 지도가 로드되지 않았을 때 표시될 메시지 (선택 사항) */}
-        {(!window.kakao || !window.kakao.maps) && <p style={{ textAlign: 'center', paddingTop: '50px' }}>지도 데이터를 불러오는 중...</p>}
+        지도 로딩 중...
       </div>
 
-      {/* 중요: 'mapInstance'가 null이 아닐 때만 KakaoMapWithControlsAndType 컴포넌트를 렌더링하고, 
-          생성된 'mapInstance'를 'map' prop으로 전달합니다. */}
-      {mapInstance && <KakaoMapWithControlsAndType map={mapInstance} />}
+      <div
+        style={{ 
+          position: 'absolute', 
+          top: '10px',
+          left: '10px',
+          zIndex: 10,
+          backgroundColor: 'white',
+          padding: '15px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+        }}
+        // 나의 현재 위치 관련 css 
+      >
+        <MyLocationComponent onLocationUpdate={handleLocationUpdate} />
+      </div>
     </div>
   );
 };
