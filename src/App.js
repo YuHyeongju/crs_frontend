@@ -10,12 +10,14 @@ import UserTypeSelectionPage from './pages/UserTypeSelectionPage'; // 사용자 
 import GeneralTermsPage from './pages/GeneralTermsPage';   // 일반 사용자 약관 페이지
 import MerchantTermsPage from './pages/MerchantTermsPage'; // 상인 약관 페이지
 import AdminTermsPage from './pages/AdminTermsPage';       // 관리자 약관 페이지
+import GeneralSignUpPage from './pages/GeneralSignUpPage';  // 일반 사용자 회원가입 페이지
+import MerchantSignUpPage from './pages/MerchantSignUpPage';  // 상인 회원가입 페이지
+import AdminSignUpPage from './pages/AdminSignUpPage';        // 관리자 회원가입 페이지
 
 function App() {
   return (
     <BrowserRouter>
       <div className="App">
-        {/* 페이지 내용 */}
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -23,6 +25,9 @@ function App() {
           <Route path="/terms/general" element={<GeneralTermsPage />} />
           <Route path="/terms/merchant" element={<MerchantTermsPage />} />
           <Route path="/terms/admin" element={<AdminTermsPage />} />
+          <Route path="/signup/general" element={<GeneralSignUpPage />} />
+           <Route path="/signup/merchant" element={<MerchantSignUpPage />} />
+            <Route path="/signup/admin" element={<AdminSignUpPage />} />
         </Routes>
       </div>
     </BrowserRouter>
