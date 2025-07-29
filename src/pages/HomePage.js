@@ -13,6 +13,8 @@ const HomePage = () => {
     const [mapInstance, setMapInstance] = useState(null);
     // 사용자 현재 위치 상태
     const [currentUserCoords, setCurrentUserCoords] = useState(null);
+    // ⭐ 위치 정보 창 표시 여부 상태
+    const [showLocationInfo, setShowLocationInfo] = useState(true);
 
     // 지도 컨테이너 ref
     const mapContainerRef = useRef(null);
@@ -110,16 +112,19 @@ const HomePage = () => {
                             title: place.place_name,
                         });
 
-                        // 가게 마커 클릭 시 가게 대략적인 정보 표시
                         window.kakao.maps.event.addListener(marker, 'click', function() {
                             console.log(`마커 클릭: ${place.place_name}`);
+                            // 내부 페이지로 이동할 링크를 포함합니다.
+                            // 예시: /restaurant-detail/12345 (여기서 12345는 place.id)
+                            const detailPageLink = `/restaurant-detail/${place.id}`;
+
                             const content = `
                                 <div style="padding:10px;font-size:13px;line-height:1.5;">
                                     <strong style="font-size:15px;color:#007bff;">${place.place_name}</strong><br>
                                     ${place.road_address_name ? `도로명: ${place.road_address_name}<br>` : ''}
                                     ${place.phone ? `전화: ${place.phone}<br>` : ''}
                                     ${place.category_name ? `분류: ${place.category_name.split('>').pop().trim()}<br>` : ''}
-                                    <a href="${place.place_url}" target="_blank" style="color:#28a745;text-decoration:none;">상세보기</a>
+                                    <a href="${detailPageLink}" style="color:#28a745;text-decoration:none;">상세보기</a>
                                 </div>
                             `;
                             if (infoWindowRef.current) {
@@ -435,42 +440,80 @@ const HomePage = () => {
                 </Link>
             </nav>
 
-            {/* --- 지도 --- */}
-            <div
-                id="map"
-                ref={mapContainerRef}
-                style={{
-                    width: '100%',
-                    height: 'calc(100vh - 60px)',
-                    backgroundColor: 'lightgray',
-                    marginTop: '60px'
-                }}
-            >
-                지도 로딩 중...
-            </div>
-
-            {/* 나의 위치 정보 창 (왼쪽 상단) */}
-            <div
-                style={{
-                    position: 'absolute',
-                    top: 'calc(60px + 1vh)',
-                    left: '1vw',
-                    zIndex: 10,
-                    backgroundColor: 'white',
-                    padding: '15px',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
-                }}
-            >
-                <MyLocationComponent onLocationUpdate={handleLocationUpdate} />
-                {currentUserCoords && (
-                    <div style={{ marginTop: '10px', fontSize: '14px', color: '#333' }}>
-                        <p style={{ margin: '3px 0' }}>위도: {currentUserCoords.latitude.toFixed(6)}</p>
-                        <p style={{ margin: '3px 0' }}>경도: {currentUserCoords.longitude.toFixed(6)}</p>
-                        <p style={{ margin: '3px 0' }}>정확도: &plusmn;{currentUserCoords.accuracy.toFixed(2)}m</p>
+            {/* ⭐ 변경: 위치 정보 창 (왼쪽 상단) - 이제 showLocationInfo가 true일 때만 flex로 표시 */}
+            {showLocationInfo && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 'calc(60px + 1vh)',
+                        left: '1vw',
+                        zIndex: 10,
+                        backgroundColor: 'white',
+                        padding: '15px',
+                        borderRadius: '8px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        display: 'flex', // flex로 변경
+                        flexDirection: 'column', // 세로 정렬
+                        justifyContent: 'space-between', // 내용과 버튼을 분리
+                        width: '250px', // 너비 고정
+                        height: 'auto', // 높이는 내용에 따라 조절
+                    }}
+                >
+                    <div> {/* MyLocationComponent와 좌표 정보를 감싸는 div */}
+                        <MyLocationComponent onLocationUpdate={handleLocationUpdate} />
+                        {currentUserCoords && (
+                            <div style={{ marginTop: '10px', fontSize: '14px', color: '#333' }}>
+                                <p style={{ margin: '3px 0' }}>위도: {currentUserCoords.latitude.toFixed(6)}</p>
+                                <p style={{ margin: '3px 0' }}>경도: {currentUserCoords.longitude.toFixed(6)}</p>
+                                <p style={{ margin: '3px 0' }}>정확도: &plusmn;{currentUserCoords.accuracy.toFixed(2)}m</p>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+
+                    {/* 위치 정보 창 토글 버튼을 창 내부에 배치 (창이 보일 때만 렌더링) */}
+                    <button
+                        onClick={() => setShowLocationInfo(false)} // 숨기기 기능만
+                        style={{
+                            marginTop: '15px', // 위쪽 콘텐츠와의 간격
+                            alignSelf: 'center', // 하단 가운데 정렬
+                            backgroundColor: '#007bff',
+                            color: 'white',
+                            padding: '8px 15px',
+                            borderRadius: '5px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                            fontSize: '14px',
+                        }}
+                    >
+                        위치 정보 숨기기
+                    </button>
+                </div>
+            )}
+
+            {/* 위치 정보 창이 숨겨져 있을 때만 보이는 '위치 정보 보기' 버튼 */}
+            {!showLocationInfo && (
+                <button
+                    onClick={() => setShowLocationInfo(true)} // 보이기 기능만
+                    style={{
+                        position: 'absolute',
+                        top: 'calc(60px + 1vh)', // 창이 있던 자리
+                        left: '1vw', // 창이 있던 자리
+                        zIndex: 10,
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        padding: '8px 15px',
+                        borderRadius: '5px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        fontSize: '14px',
+                    }}
+                >
+                    위치 정보 보기
+                </button>
+            )}
+
 
             {/*'내 위치로 이동' 버튼*/}
             <button
@@ -496,6 +539,20 @@ const HomePage = () => {
             >
                 <FaCompass style={{ fontSize: '50px', color: '#007bff' }} />
             </button>
+
+            {/* --- 지도 --- */}
+            <div
+                id="map"
+                ref={mapContainerRef}
+                style={{
+                    width: '100%',
+                    height: 'calc(100vh - 60px)',
+                    backgroundColor: 'lightgray',
+                    marginTop: '60px'
+                }}
+            >
+                지도 로딩 중...
+            </div>
 
         </div>
     );
