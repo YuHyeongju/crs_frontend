@@ -2,19 +2,29 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FaSearch, FaMapMarkerAlt, FaCompass } from 'react-icons/fa';
+import { FaSearch, FaMapMarkerAlt, FaCompass, FaChevronLeft, FaChevronRight, FaTimes } from 'react-icons/fa';
 
 import MyLocationComponent from '../components/CurrentLocation';
 
 const RESTAURANT_CATEGORY_CODE = 'FD6'; // 음식점 카테고리 코드
+const RESTAURANT_PANEL_WIDTH = '320px'; // 좌측 식당 패널 너비
+const LOCATION_PANEL_WIDTH = '280px'; // 우측 위치 정보 패널 너비
+const RIGHT_OFFSET = '10px'; // 우측 요소들의 기본 오른쪽 여백
 
 const HomePage = () => {
     // 지도 인스턴스 state
     const [mapInstance, setMapInstance] = useState(null);
     // 사용자 현재 위치 상태
     const [currentUserCoords, setCurrentUserCoords] = useState(null);
-    // ⭐ 위치 정보 창 표시 여부 상태
-    const [showLocationInfo, setShowLocationInfo] = useState(true);
+    // 좌측 식당 목록 패널 표시 여부 상태
+    const [showRestaurantPanel, setShowRestaurantPanel] = useState(false); // 초기값을 false로 설정
+    // 우측 현재 위치 정보 패널 표시 여부 상태
+    const [showLocationPanel, setShowLocationPanel] = useState(false); // 초기값을 false로 설정
+    // 검색된 식당 목록 상태
+    const [restaurantList, setRestaurantList] = useState([]);
+    // 검색어 상태
+    const [searchTerm, setSearchTerm] = useState('');
+
 
     // 지도 컨테이너 ref
     const mapContainerRef = useRef(null);
@@ -83,6 +93,65 @@ const HomePage = () => {
         }
     }, [mapInstance]);
 
+    // 공통 마커 생성 및 인포윈도우 설정 로직
+    const createAndDisplayMarker = useCallback((place, map, index = null) => {
+        const position = new window.kakao.maps.LatLng(place.y, place.x);
+
+        let markerImage = null;
+        if (index !== null) {
+            // 번호가 있는 식당 마커 이미지 생성 (핀 모양 SVG)
+            const markerSvg = `
+                <svg width="30" height="40" viewBox="0 0 30 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Pin body (teardrop shape) -->
+                    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 25 15 40 15 40C15 40 30 25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#007bff"/>
+                    <!-- Circle for number -->
+                    <circle cx="15" cy="15" r="10" fill="white"/>
+                    <!-- Text for number -->
+                    <text x="15" y="15" font-family="Arial" font-size="12" font-weight="bold" fill="#007bff" text-anchor="middle" alignment-baseline="middle">${index}</text>
+                </svg>
+            `;
+            const markerDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(markerSvg)}`;
+            markerImage = new window.kakao.maps.MarkerImage(
+                markerDataUrl,
+                new window.kakao.maps.Size(30, 40), // SVG 크기에 맞춰 조정
+                { offset: new window.kakao.maps.Point(15, 40) } // 핀의 아래쪽 중앙이 좌표에 오도록 조정
+            );
+        }
+
+        const marker = new window.kakao.maps.Marker({
+            map: map,
+            position: position,
+            title: place.place_name,
+            image: markerImage // 커스텀 마커 이미지 적용
+        });
+
+        window.kakao.maps.event.addListener(marker, 'click', function() {
+            console.log(`마커 클릭: ${place.place_name}`);
+            const detailPageLink = `/restaurant-detail/${place.id}`;
+
+            const content = `
+                <div style="padding:10px;font-size:13px;line-height:1.5;">
+                    <strong style="font-size:15px;color:#007bff;">${place.place_name}</strong><br>
+                    ${place.road_address_name ? `도로명: ${place.road_address_name}<br>` : ''}
+                    ${place.phone ? `전화: ${place.phone}<br>` : ''}
+                    ${place.category_name ? `분류: ${place.category_name.split('>').pop().trim()}<br>` : ''}
+                    <a href="${detailPageLink}" style="color:#28a745;text-decoration:none;">상세보기</a>
+                </div>
+            `;
+            if (infoWindowRef.current) {
+                infoWindowRef.current.setContent(content);
+                infoWindowRef.current.open(map, marker);
+            } else {
+                infoWindowRef.current = new window.kakao.maps.InfoWindow({
+                    content: content,
+                    removable: true
+                });
+                infoWindowRef.current.open(map, marker);
+            }
+        });
+        return marker;
+    }, [mapInstance]);
+
     // 식당 검색 및 마커 표시 함수 (초기 로딩, 클릭, 내 위치 이동 모두 사용)
     const searchAndDisplayRestaurants = useCallback((centerLatLng, searchType = 'initial') => {
         console.log(`HomePage: ${searchType} 식당 검색 실행. 중심:`, centerLatLng);
@@ -102,53 +171,29 @@ const HomePage = () => {
 
                 const bounds = new window.kakao.maps.LatLngBounds();
                 const newMarkers = [];
+                const newRestaurantList = []; // 목록에 표시할 데이터
 
-                data.forEach(place => {
+                data.forEach((place, index) => {
                     if (place.category_group_code === RESTAURANT_CATEGORY_CODE) {
-                        const position = new window.kakao.maps.LatLng(place.y, place.x);
-                        const marker = new window.kakao.maps.Marker({
-                            map: mapInstance,
-                            position: position,
-                            title: place.place_name,
-                        });
-
-                        window.kakao.maps.event.addListener(marker, 'click', function() {
-                            console.log(`마커 클릭: ${place.place_name}`);
-                            // 내부 페이지로 이동할 링크를 포함합니다.
-                            // 예시: /restaurant-detail/12345 (여기서 12345는 place.id)
-                            const detailPageLink = `/restaurant-detail/${place.id}`;
-
-                            const content = `
-                                <div style="padding:10px;font-size:13px;line-height:1.5;">
-                                    <strong style="font-size:15px;color:#007bff;">${place.place_name}</strong><br>
-                                    ${place.road_address_name ? `도로명: ${place.road_address_name}<br>` : ''}
-                                    ${place.phone ? `전화: ${place.phone}<br>` : ''}
-                                    ${place.category_name ? `분류: ${place.category_name.split('>').pop().trim()}<br>` : ''}
-                                    <a href="${detailPageLink}" style="color:#28a745;text-decoration:none;">상세보기</a>
-                                </div>
-                            `;
-                            if (infoWindowRef.current) {
-                                infoWindowRef.current.setContent(content);
-                                infoWindowRef.current.open(mapInstance, marker);
-                            } else {
-                                infoWindowRef.current = new window.kakao.maps.InfoWindow({
-                                    content: content,
-                                    removable: true
-                                });
-                                infoWindowRef.current.open(mapInstance, marker);
-                            }
-                        });
+                        const marker = createAndDisplayMarker(place, mapInstance, index + 1);
                         newMarkers.push(marker);
-                        bounds.extend(position);
+                        bounds.extend(new window.kakao.maps.LatLng(place.y, place.x));
+                        newRestaurantList.push(place); // 식당 데이터 목록에 추가
                     }
                 });
 
                 restaurantMarkersRef.current = newMarkers;
+                setRestaurantList(newRestaurantList); // 식당 목록 상태 업데이트
 
                 console.log(`HomePage: ${searchType} 필터링 후 그려질 식당 마커 수:`, newMarkers.length);
 
                 if (newMarkers.length > 0) {
                     mapInstance.setBounds(bounds);
+                    // ⭐ 변경: 검색 성공 시 식당 패널 자동 열림 로직 제거
+                    // if (!showRestaurantPanel) {
+                    //     setShowRestaurantPanel(true);
+                    //     console.log("HomePage: 식당 패널 자동 열림.");
+                    // }
                 } else {
                     alert(`주변에 검색된 음식점이 없습니다.`);
                 }
@@ -159,11 +204,13 @@ const HomePage = () => {
 
             } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
                 alert(`주변에 검색된 음식점이 없습니다.`);
+                setRestaurantList([]); // 결과 없으면 목록 비움
                 if (searchType === 'initial') {
                     setInitialRestaurantsLoaded(true);
                 }
             } else if (status === window.kakao.maps.services.Status.ERROR) {
                 alert(`${searchType} 식당 로딩 중 오류가 발생했습니다.`);
+                setRestaurantList([]); // 오류 발생 시 목록 비움
                 if (searchType === 'initial') {
                     setInitialRestaurantsLoaded(true);
                 }
@@ -172,9 +219,87 @@ const HomePage = () => {
             location: centerLatLng,
             radius: 20000 // 반경 20km가 최대
         });
-    }, [mapInstance, removeRestaurantMarkers]);
+    }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker]); // showRestaurantPanel 의존성 제거
 
-    // 1. 지도 초기화 및 기본 컨트롤 추가 (userMarkerImage 정의 위치 변경)
+    // 키워드 검색 함수
+    const handleKeywordSearch = useCallback(() => {
+        console.log(`HomePage: 키워드 검색 실행. 검색어: "${searchTerm}"`);
+
+        if (!mapInstance || !window.kakao || !window.kakao.maps.services) {
+            console.log("HomePage: 지도 인스턴스 또는 카카오 서비스 미준비. 검색 불가.");
+            return;
+        }
+        if (searchTerm.trim() === '') {
+            alert("검색어를 입력해주세요.");
+            return;
+        }
+
+        removeRestaurantMarkers(); // 기존 식당 마커 제거
+        setRestaurantList([]); // 새 검색 시작 시 목록 비움
+
+        // 사용자 위치 마커가 있다면 숨기고 깜빡임 중지
+        if (userLocationMarkerRef.current) {
+            userLocationMarkerRef.current.setMap(null);
+            stopBlinkingUserMarker();
+        }
+        // 클릭 마커가 있다면 제거
+        if (clickedMarkerRef.current) {
+            clickedMarkerRef.current.setMap(null);
+            clickedMarkerRef.current = null;
+        }
+
+        const ps = new window.kakao.maps.services.Places();
+        const mapCenter = mapInstance.getCenter(); // 현재 지도의 중심을 기준으로 검색
+
+        ps.keywordSearch(searchTerm, (data, status) => {
+            if (status === window.kakao.maps.services.Status.OK) {
+                console.log("HomePage: 키워드 검색 결과 수신 성공.", data);
+
+                const bounds = new window.kakao.maps.LatLngBounds();
+                const newMarkers = [];
+                const newRestaurantList = []; // 목록에 표시할 데이터
+
+                data.forEach((place, index) => {
+                    // 키워드 검색은 모든 카테고리를 반환할 수 있으므로, 식당만 필터링
+                    if (place.category_group_code === RESTAURANT_CATEGORY_CODE) {
+                        const marker = createAndDisplayMarker(place, mapInstance, index + 1);
+                        newMarkers.push(marker);
+                        bounds.extend(new window.kakao.maps.LatLng(place.y, place.x));
+                        newRestaurantList.push(place); // 식당 데이터 목록에 추가
+                    }
+                });
+
+                restaurantMarkersRef.current = newMarkers;
+                setRestaurantList(newRestaurantList); // 식당 목록 상태 업데이트
+
+                console.log(`HomePage: 키워드 검색 후 그려질 식당 마커 수:`, newMarkers.length);
+
+                if (newMarkers.length > 0) {
+                    mapInstance.setBounds(bounds);
+                    // ⭐ 변경: 검색 성공 시 식당 패널 자동 열림 로직 제거
+                    // if (!showRestaurantPanel) {
+                    //     setShowRestaurantPanel(true);
+                    //     console.log("HomePage: 식당 패널 자동 열림.");
+                    // }
+                } else {
+                    alert(`"${searchTerm}"(으)로 검색된 음식점이 없습니다.`);
+                }
+
+            } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
+                alert(`"${searchTerm}"(으)로 검색된 음식점이 없습니다.`);
+                setRestaurantList([]); // 결과 없으면 목록 비움
+            } else if (status === window.kakao.maps.services.Status.ERROR) {
+                alert(`키워드 검색 중 오류가 발생했습니다.`);
+                setRestaurantList([]); // 오류 발생 시 목록 비움
+            }
+        }, {
+            location: mapCenter, // 현재 지도의 중심을 기준으로 검색
+            radius: 20000 // 최대 반경 20km
+        });
+    }, [mapInstance, searchTerm, removeRestaurantMarkers, userLocationMarkerRef, stopBlinkingUserMarker, createAndDisplayMarker]); // showRestaurantPanel 의존성 제거
+
+
+    // 1. 지도 초기화 및 기본 컨트롤 추가
     useEffect(() => {
         console.log("HomePage: 지도 초기화 useEffect 실행.");
         if (mapContainerRef.current && window.kakao && window.kakao.maps) {
@@ -191,16 +316,17 @@ const HomePage = () => {
                 setMapInstance(map);
                 console.log("HomePage: 지도 인스턴스 초기화 완료!", map);
 
+                // 기본 지도 타입 컨트롤 다시 추가 (우측 상단)
                 if (!map.__mapTypeControlAdded) {
                     const mapTypeControl = new window.kakao.maps.MapTypeControl();
                     map.addControl(mapTypeControl, window.kakao.maps.ControlPosition.TOPRIGHT);
                     map.__mapTypeControlAdded = true;
                     console.log("HomePage: 지도 타입 컨트롤 추가 완료.");
                 }
-
+                // 기본 줌 컨트롤 다시 추가 (우측 하단)
                 if (!map.__zoomControlAdded) {
                     const zoomControl = new window.kakao.maps.ZoomControl();
-                    map.addControl(zoomControl, window.kakao.maps.ControlPosition.BOTTOMLEFT);
+                    map.addControl(zoomControl, window.kakao.maps.ControlPosition.BOTTOMRIGHT);
                     map.__zoomControlAdded = true;
                     console.log("HomePage: 줌 컨트롤 추가 완료.");
                 }
@@ -266,6 +392,8 @@ const HomePage = () => {
             if (!initialRestaurantsLoaded) {
                 searchAndDisplayRestaurants(userLatLng, 'initial');
             }
+            // ⭐ 변경: 초기 위치 정보 로드 시 위치 정보 패널 자동 열림 로직 제거
+            // setShowLocationPanel(true);
 
         } else if (mapInstance && currentUserCoords && userMarkerImageRef.current && initialLocationSet) {
             const { latitude, longitude } = currentUserCoords;
@@ -301,7 +429,7 @@ const HomePage = () => {
         return () => {
             stopBlinkingUserMarker();
         };
-    }, [mapInstance, currentUserCoords, initialLocationSet, initialRestaurantsLoaded, searchAndDisplayRestaurants, removeRestaurantMarkers, startBlinkingUserMarker, stopBlinkingUserMarker]);
+    }, [mapInstance, currentUserCoords, initialLocationSet, initialRestaurantsLoaded, searchAndDisplayRestaurants, removeRestaurantMarkers, startBlinkingUserMarker, stopBlinkingUserMarker]); // setShowLocationPanel 의존성 제거
 
     // 3. 지도 클릭 이벤트 리스너 추가
     useEffect(() => {
@@ -343,14 +471,20 @@ const HomePage = () => {
     // '내 위치로 이동' 버튼 클릭 핸들러
     const handleGoToMyLocation = useCallback(() => {
         console.log("내 위치로 이동 버튼 클릭됨.");
-        if (mapInstance && currentUserCoords && userMarkerImageRef.current) {
+        // currentUserCoords가 없으면 경고 메시지 표시
+        if (!currentUserCoords) {
+            alert("위치 정보를 가져오는 중입니다. 잠시 후 다시 시도해주세요.");
+            console.log("HomePage: 사용자 위치 정보가 없어 이동할 수 없습니다.");
+            return;
+        }
+
+        if (mapInstance && userMarkerImageRef.current) { // currentUserCoords는 위에서 이미 체크됨
             const { latitude, longitude } = currentUserCoords;
             const userLatLng = new window.kakao.maps.LatLng(latitude, longitude);
 
             if (clickedMarkerRef.current) {
                 clickedMarkerRef.current.setMap(null);
                 clickedMarkerRef.current = null;
-                console.log("HomePage: '내 위치로 이동' 버튼 클릭으로 클릭 마커 제거됨.");
             }
 
             mapInstance.setCenter(userLatLng);
@@ -376,10 +510,55 @@ const HomePage = () => {
             searchAndDisplayRestaurants(userLatLng, 'myLocation');
 
         } else {
-            console.log("HomePage: 지도 인스턴스 또는 사용자 위치 정보가 없어 이동할 수 없습니다.");
-            alert("현재 위치 정보를 가져올 수 없습니다. 위치 권한을 확인해주세요.");
+            // 이 else 블록은 mapInstance 또는 userMarkerImageRef.current가 null일 때만 실행됩니다.
+            // 이 경우도 사용자에게는 "위치 정보를 가져오는 중입니다" 메시지가 더 적절합니다.
+            alert("지도 초기화 중입니다. 잠시 후 다시 시도해주세요.");
+            console.log("HomePage: 지도 인스턴스 또는 사용자 마커 이미지가 없어 이동할 수 없습니다.");
         }
     }, [mapInstance, currentUserCoords, searchAndDisplayRestaurants, startBlinkingUserMarker]);
+
+    // 사이드 패널 목록 항목 클릭 핸들러
+    const handleListItemClick = useCallback((placeId) => {
+        const targetPlace = restaurantList.find(p => p.id === placeId);
+        if (!targetPlace) return;
+
+        // 마커를 찾아서 클릭 이벤트 트리거
+        const targetMarker = restaurantMarkersRef.current.find(marker => marker.getTitle() === targetPlace.place_name);
+        if (targetMarker && mapInstance) {
+            mapInstance.setCenter(targetMarker.getPosition());
+            window.kakao.maps.event.trigger(targetMarker, 'click');
+        } else {
+            // 마커가 아직 생성되지 않았거나 찾을 수 없는 경우, 직접 인포윈도우 열기
+            const position = new window.kakao.maps.LatLng(targetPlace.y, targetPlace.x);
+            mapInstance.setCenter(position); // 지도를 해당 위치로 이동
+
+            const detailPageLink = `/restaurant-detail/${targetPlace.id}`;
+            const content = `
+                <div style="padding:10px;font-size:13px;line-height:1.5;">
+                    <strong style="font-size:15px;color:#007bff;">${targetPlace.place_name}</strong><br>
+                    ${targetPlace.road_address_name ? `도로명: ${targetPlace.road_address_name}<br>` : ''}
+                    ${targetPlace.phone ? `전화: ${targetPlace.phone}<br>` : ''}
+                    ${targetPlace.category_name ? `분류: ${targetPlace.category_name.split('>').pop().trim()}<br>` : ''}
+                    <a href="${detailPageLink}" style="color:#28a745;text-decoration:none;">상세보기</a>
+                </div>
+            `;
+            if (infoWindowRef.current) {
+                infoWindowRef.current.setContent(content);
+                infoWindowRef.current.open(mapInstance, new window.kakao.maps.Marker({ position: position })); // 임시 마커로 인포윈도우 열기
+            } else {
+                infoWindowRef.current = new window.kakao.maps.InfoWindow({
+                    content: content,
+                    removable: true
+                });
+                infoWindowRef.current.open(mapInstance, new window.kakao.maps.Marker({ position: position }));
+            }
+        }
+    }, [mapInstance, restaurantList]);
+
+
+    // 지도 width 및 left/right 계산 (이제 패널이 오버레이이므로 지도 크기는 항상 100%)
+    const mapWidth = '100%';
+    const mapLeft = '0px';
 
 
     return (
@@ -411,10 +590,18 @@ const HomePage = () => {
                     <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2C3E50' }}>CRS</span>
                 </div>
 
+                {/* 검색 input과 버튼 */}
                 <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'white', borderRadius: '25px', padding: '5px 15px', border: '1px solid #ddd', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                     <input
                         type="text"
                         placeholder="식당 검색..."
+                        value={searchTerm} // 검색어 상태와 연결
+                        onChange={(e) => setSearchTerm(e.target.value)} // 검색어 업데이트
+                        onKeyPress={(e) => { // Enter 키 입력 시 검색
+                            if (e.key === 'Enter') {
+                                handleKeywordSearch();
+                            }
+                        }}
                         style={{
                             border: 'none',
                             outline: 'none',
@@ -424,7 +611,10 @@ const HomePage = () => {
                             marginRight: '10px'
                         }}
                     />
-                    <FaSearch style={{ color: '#007bff', cursor: 'pointer' }} />
+                    <FaSearch
+                        style={{ color: '#007bff', cursor: 'pointer' }}
+                        onClick={handleKeywordSearch} // 검색 버튼 클릭 시 검색
+                    />
                 </div>
 
                 <Link to="/login" style={{
@@ -440,66 +630,114 @@ const HomePage = () => {
                 </Link>
             </nav>
 
-            {/* ⭐ 변경: 위치 정보 창 (왼쪽 상단) - 이제 showLocationInfo가 true일 때만 flex로 표시 */}
-            {showLocationInfo && (
+            {/* --- 지도 --- */}
+            <div
+                id="map"
+                ref={mapContainerRef}
+                style={{
+                    width: mapWidth, // 항상 100%
+                    height: 'calc(100vh - 60px)',
+                    backgroundColor: 'lightgray',
+                    marginTop: '60px',
+                    left: mapLeft, // 항상 0px
+                    position: 'absolute',
+                    transition: 'none',
+                }}
+            >
+                지도 로딩 중...
+            </div>
+
+            {/* 좌측 식당 목록 패널 (오버레이) */}
+            {showRestaurantPanel && (
                 <div
                     style={{
                         position: 'absolute',
-                        top: 'calc(60px + 1vh)',
-                        left: '1vw',
-                        zIndex: 10,
-                        backgroundColor: 'white',
-                        padding: '15px',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                        display: 'flex', // flex로 변경
-                        flexDirection: 'column', // 세로 정렬
-                        justifyContent: 'space-between', // 내용과 버튼을 분리
-                        width: '250px', // 너비 고정
-                        height: 'auto', // 높이는 내용에 따라 조절
+                        top: '60px', // 헤더 아래
+                        left: 0,
+                        width: RESTAURANT_PANEL_WIDTH,
+                        height: 'calc(100vh - 60px)', // 헤더 높이만큼 제외
+                        backgroundColor: '#f8f8f8',
+                        zIndex: 90,
+                        boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        transform: showRestaurantPanel ? 'translateX(0)' : `translateX(-${RESTAURANT_PANEL_WIDTH})`,
+                        transition: 'transform 0.3s ease-out',
                     }}
                 >
-                    <div> {/* MyLocationComponent와 좌표 정보를 감싸는 div */}
-                        <MyLocationComponent onLocationUpdate={handleLocationUpdate} />
-                        {currentUserCoords && (
-                            <div style={{ marginTop: '10px', fontSize: '14px', color: '#333' }}>
-                                <p style={{ margin: '3px 0' }}>위도: {currentUserCoords.latitude.toFixed(6)}</p>
-                                <p style={{ margin: '3px 0' }}>경도: {currentUserCoords.longitude.toFixed(6)}</p>
-                                <p style={{ margin: '3px 0' }}>정확도: &plusmn;{currentUserCoords.accuracy.toFixed(2)}m</p>
-                            </div>
+                    {/* 패널 숨기기 버튼 (패널 내부에 있을 때) */}
+                    <button
+                        onClick={() => setShowRestaurantPanel(false)}
+                        style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px', // 우측 상단으로 이동
+                            backgroundColor: '#fff',
+                            border: '1px solid #ddd',
+                            borderRadius: '50%',
+                            width: '30px',
+                            height: '30px',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            zIndex: 10,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                        }}
+                        title="패널 숨기기"
+                    >
+                        <FaChevronLeft style={{ fontSize: '16px', color: '#555' }} />
+                    </button>
+
+                    {/* 식당 목록 */}
+                    <div style={{ flexGrow: 1, overflowY: 'auto', padding: '15px' }}>
+                        <h3 style={{ marginTop: '0', marginBottom: '15px', color: '#333' }}>
+                            검색 결과 ({restaurantList.length}개)
+                        </h3>
+                        {restaurantList.length > 0 ? (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                {restaurantList.map((place, index) => (
+                                    <li
+                                        key={place.id}
+                                        onClick={() => handleListItemClick(place.id)} // 목록 항목 클릭 시 지도 이동/인포윈도우 열기
+                                        style={{
+                                            padding: '12px 10px',
+                                            borderBottom: '1px solid #eee',
+                                            cursor: 'pointer',
+                                            backgroundColor: (index % 2 === 0) ? '#fff' : '#fefefe',
+                                            borderRadius: '5px',
+                                            marginBottom: '8px',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                                            transition: 'background-color 0.2s',
+                                        }}
+                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#e6f7ff'}
+                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = (index % 2 === 0) ? '#fff' : '#fefefe'}
+                                    >
+                                        <strong style={{ color: '#007bff', fontSize: '16px' }}>{index + 1}. {place.place_name}</strong><br />
+                                        <span style={{ fontSize: '13px', color: '#555' }}>
+                                            {place.road_address_name || place.address_name}
+                                        </span><br />
+                                        {place.phone && <span style={{ fontSize: '12px', color: '#777' }}>📞 {place.phone}</span>}
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : (
+                            <p style={{ color: '#777', textAlign: 'center', marginTop: '50px' }}>
+                                검색된 식당이 없습니다.
+                            </p>
                         )}
                     </div>
-
-                    {/* 위치 정보 창 토글 버튼을 창 내부에 배치 (창이 보일 때만 렌더링) */}
-                    <button
-                        onClick={() => setShowLocationInfo(false)} // 숨기기 기능만
-                        style={{
-                            marginTop: '15px', // 위쪽 콘텐츠와의 간격
-                            alignSelf: 'center', // 하단 가운데 정렬
-                            backgroundColor: '#007bff',
-                            color: 'white',
-                            padding: '8px 15px',
-                            borderRadius: '5px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                            fontSize: '14px',
-                        }}
-                    >
-                        위치 정보 숨기기
-                    </button>
                 </div>
             )}
 
-            {/* 위치 정보 창이 숨겨져 있을 때만 보이는 '위치 정보 보기' 버튼 */}
-            {!showLocationInfo && (
+            {/* 좌측 패널 보이기 버튼 (패널이 숨겨져 있을 때만) */}
+            {!showRestaurantPanel && (
                 <button
-                    onClick={() => setShowLocationInfo(true)} // 보이기 기능만
+                    onClick={() => setShowRestaurantPanel(true)}
                     style={{
                         position: 'absolute',
-                        top: 'calc(60px + 1vh)', // 창이 있던 자리
-                        left: '1vw', // 창이 있던 자리
-                        zIndex: 10,
+                        top: 'calc(60px + 10px)', // 헤더 아래, 패널이 있던 자리 근처
+                        left: '10px',
                         backgroundColor: '#007bff',
                         color: 'white',
                         padding: '8px 15px',
@@ -508,20 +746,102 @@ const HomePage = () => {
                         cursor: 'pointer',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
                         fontSize: '14px',
+                        zIndex: 95,
                     }}
+                    title="패널 보이기"
+                >
+                    <FaChevronRight style={{ fontSize: '16px', marginRight: '5px' }} /> 패널 보기
+                </button>
+            )}
+
+            {/* 우측 현재 위치 정보 패널 (오버레이) */}
+            {showLocationPanel && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '60px', // 헤더 아래
+                        right: RIGHT_OFFSET, // 우측에 고정
+                        width: LOCATION_PANEL_WIDTH,
+                        height: 'auto', // 내용에 따라 높이 조절
+                        backgroundColor: '#f8f8f8',
+                        zIndex: 90,
+                        boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '15px',
+                        borderRadius: '8px',
+                        transform: showLocationPanel ? 'translateX(0)' : `translateX(${LOCATION_PANEL_WIDTH})`,
+                        transition: 'transform 0.3s ease-out',
+                    }}
+                >
+                    {/* 패널 닫기 버튼 아이콘을 FaTimes (X)로 변경 */}
+                    <button
+                        onClick={() => setShowLocationPanel(false)}
+                        style={{
+                            position: 'absolute',
+                            top: '10px',
+                            left: '10px', // 좌측 상단으로 이동
+                            backgroundColor: '#fff',
+                            border: '1px solid #ddd',
+                            borderRadius: '50%',
+                            width: '30px',
+                            height: '30px',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            zIndex: 10,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                        }}
+                        title="패널 닫기"
+                    >
+                        <FaTimes style={{ fontSize: '16px', color: '#555' }} />
+                    </button>
+
+                    {/* 나의 현재 위치 정보 */}
+                    <MyLocationComponent onLocationUpdate={handleLocationUpdate} />
+                    {currentUserCoords && (
+                        <div style={{ marginTop: '10px', fontSize: '14px', color: '#333' }}>
+                            <p style={{ margin: '3px 0' }}>위도: {currentUserCoords.latitude.toFixed(6)}</p>
+                            <p style={{ margin: '3px 0' }}>경도: {currentUserCoords.longitude.toFixed(6)}</p>
+                            <p style={{ margin: '3px 0' }}>정확도: &plusmn;{currentUserCoords.accuracy.toFixed(2)}m</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* 우측 패널 보이기 버튼 (패널이 숨겨져 있을 때만) - 화살표 제거 */}
+            {!showLocationPanel && (
+                <button
+                    onClick={() => setShowLocationPanel(true)}
+                    style={{
+                        position: 'absolute',
+                        top: 'calc(60px + 10px + 30px + 10px)', // 헤더 + 기본 지도 타입 컨트롤 + 간격 아래
+                        right: RIGHT_OFFSET,
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        padding: '8px 15px',
+                        borderRadius: '5px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        fontSize: '14px',
+                        zIndex: 95,
+                    }}
+                    title="위치 정보 보기"
                 >
                     위치 정보 보기
                 </button>
             )}
 
 
-            {/*'내 위치로 이동' 버튼*/}
+            {/*'내 위치로 이동' 버튼 (오른쪽 하단)*/}
             <button
                 onClick={handleGoToMyLocation}
                 style={{
                     position: 'absolute',
-                    top: 'calc(60px + 80vh)',
-                    right: '1.5vw',
+                    top: 'calc(60px + 80vh)', // 기존 위치 유지
+                    right: `calc(${RIGHT_OFFSET} + 1.5vw + 40px)`, // 오른쪽으로 더 이동 (기존 줌 컨트롤 너비 + 여백)
                     zIndex: 10,
                     backgroundColor: '#fff',
                     border: '1px solid #ddd',
@@ -532,27 +852,16 @@ const HomePage = () => {
                     justifyContent: 'center',
                     alignItems: 'center',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                    cursor: 'pointer',
-                    padding: 0
+                    cursor: currentUserCoords ? 'pointer' : 'not-allowed', // ⭐ 변경: 위치 정보 로드 여부에 따라 커서 변경
+                    opacity: currentUserCoords ? 1 : 0.5, // ⭐ 변경: 위치 정보 로드 여부에 따라 투명도 변경
+                    padding: 0,
+                    transition: 'opacity 0.3s ease-in-out', // ⭐ 변경: 투명도 전환 효과 추가
                 }}
-                title="내 위치로 이동"
+                disabled={currentUserCoords === null} // ⭐ 변경: 위치 정보 로드 전까지 버튼 비활성화
+                title={currentUserCoords ? "내 위치로 이동" : "위치 정보 로딩 중..."} // ⭐ 변경: 툴팁 메시지 변경
             >
                 <FaCompass style={{ fontSize: '50px', color: '#007bff' }} />
             </button>
-
-            {/* --- 지도 --- */}
-            <div
-                id="map"
-                ref={mapContainerRef}
-                style={{
-                    width: '100%',
-                    height: 'calc(100vh - 60px)',
-                    backgroundColor: 'lightgray',
-                    marginTop: '60px'
-                }}
-            >
-                지도 로딩 중...
-            </div>
 
         </div>
     );
