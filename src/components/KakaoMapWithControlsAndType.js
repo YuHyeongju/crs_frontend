@@ -53,9 +53,6 @@ const KakaoMapWithControlsAndType = ({ map }) => {
   }
 
   return (
-    // 지도를 직접 렌더링하는 div는 이 컴포넌트에서 제거했습니다.
-    // 이 컴포넌트의 역할은 오직 지도 컨트롤만 제공하는 것입니다.
-    // 컨트롤들이 지도 위에 오버레이되도록 스타일을 설정합니다.
     <>
       {/* 지도 타입 컨트롤 */}
       <div style={{ position: 'absolute', top: '10px', left: '10px', zIndex: 1, backgroundColor: 'white', padding: '5px', borderRadius: '5px', boxShadow: '2px 2px 2px rgba(0,0,0,0.2)' }}>

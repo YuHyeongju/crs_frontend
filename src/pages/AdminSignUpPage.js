@@ -125,8 +125,8 @@ function AdminSignUpPage() {
     };
 
     console.log('관리자 회원가입 정보:', payload);
-    alert('관리자 회원가입이 완료되었습니다!');
-    navigate('/login');
+    alert('회원가입이 완료되었습니다!');
+    navigate('/login'); // 로그인 페이지로 이동
   };
 
   return (
