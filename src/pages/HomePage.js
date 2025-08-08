@@ -15,6 +15,7 @@
 //     const [showLocationPanel, setShowLocationPanel] = useState(true);
 //     const [restaurantList, setRestaurantList] = useState([]);
 //     const [searchTerm, setSearchTerm] = useState('');
+//     const [currentMapType, setCurrentMapType] = useState('road'); // 'road' 또는 'sky'
 
 //     const mapContainerRef = useRef(null);
 //     const clickedMarkerRef = useRef(null);
@@ -121,7 +122,7 @@
 //             }
 //         });
 //         return marker;
-//     }, [infoWindowRef]); // 경고 해결을 위해 mapInstance를 제거합니다.
+//     }, [infoWindowRef]);
 
 //     const searchAndDisplayRestaurants = useCallback((centerLatLng, searchType = 'initial', keyword = '') => {
 //         console.log(`HomePage: ${searchType} 식당 검색 실행. 중심:`, centerLatLng);
@@ -203,6 +204,23 @@
 //         setShowRestaurantPanel(true);
 //     }, [mapInstance, searchTerm, searchAndDisplayRestaurants, stopBlinkingUserMarker]);
 
+//     // 지도 유형 '일반지도'로 변경
+//     const handleRoadmapClick = useCallback(() => {
+//         if (mapInstance) {
+//             mapInstance.setMapTypeId(window.kakao.maps.MapTypeId.ROADMAP);
+//             setCurrentMapType('road');
+//         }
+//     }, [mapInstance]);
+
+//     // 지도 유형 '스카이뷰'로 변경
+//     const handleSkyviewClick = useCallback(() => {
+//         if (mapInstance) {
+//             mapInstance.setMapTypeId(window.kakao.maps.MapTypeId.HYBRID);
+//             setCurrentMapType('sky');
+//         }
+//     }, [mapInstance]);
+
+
 //     useEffect(() => {
 //         console.log("HomePage: 지도 초기화 useEffect 실행.");
 //         if (mapContainerRef.current && window.kakao && window.kakao.maps) {
@@ -216,8 +234,9 @@
 //                 const map = new window.kakao.maps.Map(mapContainer, mapOption);
 //                 setMapInstance(map);
 
-//                 const mapTypeControl = new window.kakao.maps.MapTypeControl();
-//                 map.addControl(mapTypeControl, window.kakao.maps.ControlPosition.TOPRIGHT);
+//                 // 카카오맵 기본 컨트롤 제거
+//                 // const mapTypeControl = new window.kakao.maps.MapTypeControl();
+//                 // map.addControl(mapTypeControl, window.kakao.maps.ControlPosition.TOPRIGHT);
 //                 const zoomControl = new window.kakao.maps.ZoomControl();
 //                 map.addControl(zoomControl, window.kakao.maps.ControlPosition.BOTTOMRIGHT);
 
@@ -387,7 +406,7 @@
 //                 position: 'absolute',
 //                 top: 0,
 //                 left: 0,
-//                 width: '98.5vw',
+//                 width: '98vw',
 //                 padding: '10px 20px',
 //                 borderBottom: '1px solid #ccc',
 //                 backgroundColor: '#f0f0f0',
@@ -440,11 +459,10 @@
 //                     textDecoration: 'none',
 //                     backgroundColor: '#007bff',
 //                     color: 'white',
-//                     padding: '8px 15px',
+//                     padding: '5px 15px',
 //                     borderRadius: '5px',
 //                     fontWeight: 'bold',
-//                     fontSize: '16px',
-
+//                     fontSize: '16px'
 //                 }}>
 //                     로그인
 //                 </Link>
@@ -466,6 +484,57 @@
 //             >
 //                 지도 로딩 중...
 //             </div>
+
+//             {/*
+//                 스카이뷰/일반지도 전환 버튼 그룹
+//             */}
+//             <div style={{
+//                 position: 'absolute',
+//                 top: '3.5vw', // 상단 헤더와 여백을 고려한 위치
+//                 right: '0.5vw',
+//                 zIndex: 10,
+//                 transition: 'right 0.3s ease',
+//                 display: 'flex',
+//                 gap: '5px', // 버튼 사이 간격
+//             }}>
+//                 <button
+//                     onClick={handleRoadmapClick}
+//                     style={{
+//                         backgroundColor: currentMapType === 'road' ? '#007bff' : 'rgba(255, 255, 255, 0.9)',
+//                         color: currentMapType === 'road' ? 'white' : '#333',
+//                         border: '1px solid #ccc',
+//                         borderRadius: '5px',
+//                         padding: '8px 12px',
+//                         cursor: 'pointer',
+//                         boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+//                         fontSize: '14px',
+//                         fontWeight: 'bold',
+//                         transition: 'background-color 0.3s ease, color 0.3s ease',
+//                     }}
+//                     title="일반 지도로 전환"
+//                 >
+//                     일반지도
+//                 </button>
+//                 <button
+//                     onClick={handleSkyviewClick}
+//                     style={{
+//                         backgroundColor: currentMapType === 'sky' ? '#007bff' : 'rgba(255, 255, 255, 0.9)',
+//                         color: currentMapType === 'sky' ? 'white' : '#333',
+//                         border: '1px solid #ccc',
+//                         borderRadius: '5px',
+//                         padding: '8px 12px',
+//                         cursor: 'pointer',
+//                         boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+//                         fontSize: '14px',
+//                         fontWeight: 'bold',
+//                         transition: 'background-color 0.3s ease, color 0.3s ease',
+//                     }}
+//                     title="스카이뷰로 전환"
+//                 >
+//                     스카이뷰
+//                 </button>
+//             </div>
+
 
 //             {/* 좌측 식당 목록 패널 (오버레이) */}
 //             {showRestaurantPanel && (
@@ -578,8 +647,8 @@
 //                 <div
 //                     style={{
 //                         position: 'absolute',
-//                         top: '6.5vh',
-//                         right: '0vw',
+//                         top: '60px',
+//                         right: RIGHT_OFFSET,
 //                         width: LOCATION_PANEL_WIDTH,
 //                         height: 'auto',
 //                         backgroundColor: '#f8f8f8',
@@ -628,14 +697,14 @@
 //                 </div>
 //             )}
 
-//             {/* 위치 정보 보기 버튼 */}
+//             {/* 우측 패널 보이기 버튼 (패널이 숨겨져 있을 때만) */}
 //             {!showLocationPanel && (
 //                 <button
 //                     onClick={() => setShowLocationPanel(true)}
 //                     style={{
 //                         position: 'absolute',
-//                         top: 'calc(60px + 10px + 30px + 6px)',
-//                         right: '0.1vw',
+//                         top: 'calc(60px + 10px + 30px + 10px)',
+//                         right: RIGHT_OFFSET,
 //                         backgroundColor: '#007bff',
 //                         color: 'white',
 //                         padding: '8px 15px',
@@ -679,17 +748,20 @@
 //             >
 //                 <FaCompass style={{ fontSize: '50px', color: '#007bff' }} />
 //             </button>
-
 //         </div>
 //     );
 // };
 
 // export default HomePage;
 
+
+// src/pages/HomePage.js
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaSearch, FaMapMarkerAlt, FaCompass, FaChevronLeft, FaTimes } from 'react-icons/fa';
 import MyLocationComponent from '../components/CurrentLocation';
+import { ReactComponent as ProfileIcon } from '../assets/Vector.svg';
 
 const RESTAURANT_CATEGORY_CODE = 'FD6';
 const RESTAURANT_PANEL_WIDTH = '320px';
@@ -697,13 +769,16 @@ const LOCATION_PANEL_WIDTH = '280px';
 const RIGHT_OFFSET = '10px';
 
 const HomePage = () => {
+    const navigate = useNavigate();
     const [mapInstance, setMapInstance] = useState(null);
     const [currentUserCoords, setCurrentUserCoords] = useState(null);
     const [showRestaurantPanel, setShowRestaurantPanel] = useState(true);
     const [showLocationPanel, setShowLocationPanel] = useState(true);
     const [restaurantList, setRestaurantList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
-    const [currentMapType, setCurrentMapType] = useState('road'); // 'road' 또는 'sky'
+    const [currentMapType, setCurrentMapType] = useState('road');
+    // 로그인 상태를 관리하는 새로운 상태 변수
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     const mapContainerRef = useRef(null);
     const clickedMarkerRef = useRef(null);
@@ -719,6 +794,14 @@ const HomePage = () => {
     const handleLocationUpdate = useCallback((coords) => {
         setCurrentUserCoords(coords);
     }, []);
+
+    // 로그아웃 처리 함수
+    const handleLogout = useCallback(() => {
+        localStorage.removeItem('isLoggedIn');
+        setIsLoggedIn(false);
+        alert('로그아웃 되었습니다.');
+        navigate('/');
+    }, [navigate]);
 
     const removeRestaurantMarkers = useCallback(() => {
         console.log("HomePage: removeRestaurantMarkers 실행.");
@@ -786,7 +869,7 @@ const HomePage = () => {
             image: markerImage
         });
 
-        window.kakao.maps.event.addListener(marker, 'click', function() {
+        window.kakao.maps.event.addListener(marker, 'click', function () {
             console.log(`마커 클릭: ${place.place_name}`);
             const detailPageLink = `/restaurant-detail/${place.id}`;
             const content = `
@@ -908,6 +991,13 @@ const HomePage = () => {
         }
     }, [mapInstance]);
 
+    // 로그인 상태를 localStorage에서 확인하여 상태 업데이트
+    useEffect(() => {
+        const loggedInStatus = localStorage.getItem('isLoggedIn');
+        if (loggedInStatus === 'true') {
+            setIsLoggedIn(true);
+        }
+    }, []);
 
     useEffect(() => {
         console.log("HomePage: 지도 초기화 useEffect 실행.");
@@ -992,7 +1082,7 @@ const HomePage = () => {
     useEffect(() => {
         let clickHandler;
         if (mapInstance) {
-            clickHandler = function(mouseEvent) {
+            clickHandler = function (mouseEvent) {
                 const latlng = mouseEvent.latLng;
                 console.log(`지도 클릭: 위도 ${latlng.getLat()}, 경도 ${latlng.getLng()}`);
                 if (clickedMarkerRef.current) {
@@ -1089,7 +1179,7 @@ const HomePage = () => {
     return (
         <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
 
-            {/* --- 상단 헤더: 로고, 검색창, 로그인 버튼 --- */}
+            {/* --- 상단 헤더: 로고, 검색창, 로그인/프로필 버튼 --- */}
             <nav style={{
                 position: 'absolute',
                 top: 0,
@@ -1104,12 +1194,14 @@ const HomePage = () => {
                 height: '40px',
                 zIndex: 100
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+                <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}>
                     <FaMapMarkerAlt style={{ fontSize: '24px', color: '#E74C3C' }} />
                     <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2C3E50' }}>
                         CRS
                     </span>
-                </div>
+                </Link>
+
                 <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -1143,17 +1235,37 @@ const HomePage = () => {
                         style={{ color: '#007bff', cursor: 'pointer' }}
                     />
                 </div>
-                <Link to="/login" style={{
-                    textDecoration: 'none',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    padding: '5px 15px',
-                    borderRadius: '5px',
-                    fontWeight: 'bold',
-                    fontSize: '16px'
-                }}>
-                    로그인
-                </Link>
+
+                {/* 로그인 상태에 따라 버튼 또는 프로필 사진을 조건부로 렌더링 */}
+                {isLoggedIn ? (
+                    <div
+                        onClick={handleLogout}
+                        style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            border: '2px solid #fff',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        }}
+                        title="로그아웃"
+                    >
+                        <ProfileIcon style={{ width: '80%', height: '100%' }} /> 
+                    </div>
+                ) : (
+                    <Link to="/login" style={{
+                        textDecoration: 'none',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        padding: '5px 15px',
+                        borderRadius: '5px',
+                        fontWeight: 'bold',
+                        fontSize: '16px'
+                    }}>
+                        로그인
+                    </Link>
+                )}
             </nav>
 
             {/* --- 지도 --- */}
@@ -1178,12 +1290,12 @@ const HomePage = () => {
             */}
             <div style={{
                 position: 'absolute',
-                top: '3.5vw', // 상단 헤더와 여백을 고려한 위치
+                top: '3.5vw',
                 right: '0.5vw',
                 zIndex: 10,
                 transition: 'right 0.3s ease',
                 display: 'flex',
-                gap: '5px', // 버튼 사이 간격
+                gap: '5px',
             }}>
                 <button
                     onClick={handleRoadmapClick}
@@ -1414,8 +1526,8 @@ const HomePage = () => {
                 onClick={handleGoToMyLocation}
                 style={{
                     position: 'absolute',
-                    top: 'calc(60px + 80vh)',
-                    right: `calc(${RIGHT_OFFSET} + 1.5vw + 40px)`,
+                    top: '85vh', // calc(60px + 80vh)
+                    right: `3vw`, // calc(${RIGHT_OFFSET} + 1.5vw + 40px)
                     zIndex: 10,
                     backgroundColor: '#fff',
                     border: '1px solid #ddd',
