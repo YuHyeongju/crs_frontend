@@ -7,7 +7,7 @@ import { FaUser, FaStore, FaCog, FaMapMarkerAlt } from 'react-icons/fa';
 function UserTypeSelectionPage() {
   return (
     <div style={styles.container}>
-      {/* 🌟 Link 컴포넌트로 앱 로고와 이름 감싸기 🌟 */}
+      {/* Link 컴포넌트로 앱 로고와 이름 감싸기 */}
       <div style={styles.appHeader}>
         <Link to="/" style={styles.logoLink}>
           <FaMapMarkerAlt style={styles.logoIcon} />

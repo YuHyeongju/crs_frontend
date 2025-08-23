@@ -1,30 +1,31 @@
 import React, { useState, useContext } from 'react';
-import { FaUser, FaLock, FaEnvelope, FaPhone, FaTimesCircle } from 'react-icons/fa';
+import { FaUser, FaLock, FaEnvelope, FaPhone, FaBuilding, FaTimesCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import WithdrawalModal from './WithdrawalModal';
-import { AuthContext } from '../context/AuthContext'; 
+import { AuthContext } from '../context/AuthContext';
 
-const MyInfoPanel = () => {
+const MerchantMyInfoPanel = () => {
   const navigate = useNavigate();
-  const { logout } = useContext(AuthContext); // AuthContext에서 logout 함수를 가져옵니다.
+  const { logout } = useContext(AuthContext);
 
   const [userInfo, setUserInfo] = useState({
-    id: 'user123',
-    password: 'password123!',
-    email: 'user@example.com',
-    name: '김민준',
-    phoneNumber: '010-1234-5678',
+    id: 'test',
+    password: '1234',
+    email: 'merchant@example.com',
+    name: '김상인',
+    phoneNumber: '010-9876-5432',
+    businessNumber: '123-45-67890',
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserInfo(prev => ({ ...prev, [`${name}`]: value }));
+    setUserInfo(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSaveClick = () => {
     alert('정보가 성공적으로 저장되었습니다!');
-    console.log('저장된 정보:', userInfo);
+    console.log('상인 정보 저장:', userInfo);
   };
 
   const handleOpenModal = () => {
@@ -35,25 +36,14 @@ const MyInfoPanel = () => {
     setIsModalOpen(false);
   };
 
-  const handleConfirmWithdrawal = async () => {
-    try {
-      // 1. 회원 탈퇴 API 호출 (예시)
-      // await axios.delete('/api/user/withdraw');
+  const handleConfirmWithdrawal = () => {
+    console.log('상인 회원 탈퇴를 처리하는 중...');
+    
+    logout();
 
-      // 2. 전역 로그인 상태 초기화 (로그아웃 처리)
-      logout();
-
-      // 3. 알림창 띄우기
-      alert('회원 탈퇴가 완료되었습니다.');
-      
-      // 4. 메인 화면으로 이동
-      navigate('/');
-      
-      handleCloseModal();
-    } catch (error) {
-      console.error('회원 탈퇴 중 오류가 발생했습니다:', error);
-      alert('회원 탈퇴 중 오류가 발생했습니다.');
-    }
+    alert('회원 탈퇴가 완료되었습니다.');
+    navigate('/');
+    handleCloseModal();
   };
 
   const styles = {
@@ -61,7 +51,7 @@ const MyInfoPanel = () => {
     title: { fontSize: '24px', fontWeight: 'bold', marginBottom: '30px', color: '#333', borderBottom: '2px solid #007bff', paddingBottom: '10px' },
     formGroup: { marginBottom: '20px', display: 'flex', alignItems: 'center' },
     icon: { marginRight: '20px', fontSize: '20px', color: '#007bff', minWidth: '24px', textAlign: 'center' },
-    label: { fontSize: '16px', color: '#555', fontWeight: 'bold', width: '100px', marginRight: '20px', textAlign: 'left' },
+    label: { fontSize: '16px', color: '#555', fontWeight: 'bold', width: '150px', marginRight: '20px', textAlign: 'left' },
     input: { flexGrow: 1, border: '1px solid #ccc', borderRadius: '5px', padding: '10px 12px', fontSize: '16px', outline: 'none' },
     inputDisabled: { backgroundColor: '#f9f9f9', color: '#777', cursor: 'not-allowed' },
     buttonContainer: { display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '30px' },
@@ -78,6 +68,7 @@ const MyInfoPanel = () => {
       <div style={styles.formGroup}><FaEnvelope style={styles.icon} /><label style={styles.label}>이메일</label><input type="email" name="email" value={userInfo.email} onChange={handleChange} style={styles.input} /></div>
       <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>이름</label><input type="text" name="name" value={userInfo.name} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
       <div style={styles.formGroup}><FaPhone style={styles.icon} /><label style={styles.label}>전화번호</label><input type="tel" name="phoneNumber" value={userInfo.phoneNumber} onChange={handleChange} style={styles.input} /></div>
+      <div style={styles.formGroup}><FaBuilding style={styles.icon} /><label style={styles.label}>사업자 등록번호</label><input type="text" name="businessNumber" value={userInfo.businessNumber} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
       
       <div style={styles.buttonContainer}>
         <button style={{ ...styles.button, ...styles.saveButton }} onClick={handleSaveClick}>저장하기</button>
@@ -95,4 +86,4 @@ const MyInfoPanel = () => {
   );
 };
 
-export default MyInfoPanel;
+export default MerchantMyInfoPanel;
