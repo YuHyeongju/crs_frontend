@@ -18,7 +18,7 @@ function LoginPage() {
   // 테스트할 사용자 역할을 여기에 설정하세요.
   // 'general', 'merchant', 'admin' 중 하나를 입력하세요.
   // 이 변수 값을 변경하여 다양한 사용자 유형으로 로그인할 수 있습니다.
-  const testUserRole = 'merchant';
+  const testUserRole = 'admin';
 
   const handleLoginSubmit = (e) => {
     e.preventDefault();
