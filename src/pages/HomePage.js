@@ -5,7 +5,7 @@ import RestaurantListPanel from '../components/RestaurantListPanel';
 import MapControls from '../components/MapControls';
 import GoToMyLocationButton from '../components/GoToMyLocationButton';
 import LocationPanel from '../components/LocationPanel';
-import CongestionChangePanel from '../components/CongestionChangePanel'; // ⭐ 추가
+import CongestionChangePanel from '../components/CongestionChangePanel';
 import { AuthContext } from '../context/AuthContext'; 
 
 // 데스크톱 환경에서 식당 패널의 너비와 모바일 기준 해상도 정의
@@ -33,27 +33,25 @@ const HomePage = () => {
     const { isLoggedIn, logout } = useContext(AuthContext);
 
     // 상태 변수들 (useState)
-    const [mapInstance, setMapInstance] = useState(null); // 카카오 맵 인스턴스
-    const [currentUserCoords, setCurrentUserCoords] = useState(null); // 사용자의 현재 좌표
-    const [showRestaurantPanel, setShowRestaurantPanel] = useState(true); // 식당 리스트 패널 표시 여부
-    const [showLocationPanel, setShowLocationPanel] = useState(true); // 현재 위치 패널 표시 여부
-    const [restaurantList, setRestaurantList] = useState([]); // 검색된 식당 리스트
-    const [searchTerm, setSearchTerm] = useState(''); // 검색어
-    const [currentMapType, setCurrentMapType] = useState('road'); // 현재 지도 타입 (일반지도/스카이뷰)
-    const [isMobile, setIsMobile] = useState(window.innerWidth <= MOBILE_BREAKPOINT); // 모바일 여부
-    
-    // 혼잡도 변경 관련 상태 변수 추가
+    const [mapInstance, setMapInstance] = useState(null);
+    const [currentUserCoords, setCurrentUserCoords] = useState(null);
+    const [showRestaurantPanel, setShowRestaurantPanel] = useState(true);
+    const [showLocationPanel, setShowLocationPanel] = useState(true);
+    const [restaurantList, setRestaurantList] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentMapType, setCurrentMapType] = useState('road');
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= MOBILE_BREAKPOINT);
     const [showCongestionModal, setShowCongestionModal] = useState(false);
     const [selectedRestaurant, setSelectedRestaurant] = useState(null);
 
     // DOM 요소 및 객체 참조 (useRef)
-    const mapContainerRef = useRef(null); // 지도를 렌더링할 div 요소
-    const clickedMarkerRef = useRef(null); // 클릭된 위치에 생성되는 임시 마커
-    const userLocationMarkerRef = useRef(null); // 사용자의 현재 위치를 표시하는 마커
-    const restaurantMarkersRef = useRef([]); // 검색된 식당 마커 배열
-    const infoWindowRef = useRef(null); // 마커 클릭 시 표시되는 정보 창
-    const userMarkerImageRef = useRef(null); // 현재 위치 마커 이미지
-    const userLocationBlinkIntervalRef = useRef(null); // 현재 위치 마커 깜빡임 인터벌
+    const mapContainerRef = useRef(null);
+    const clickedMarkerRef = useRef(null);
+    const userLocationMarkerRef = useRef(null);
+    const restaurantMarkersRef = useRef([]);
+    const infoWindowRef = useRef(null);
+    const userMarkerImageRef = useRef(null);
+    const userLocationBlinkIntervalRef = useRef(null);
     
     // 초기 위치 설정 여부 (useEffect의 무한 호출 방지)
     const [initialLocationSet, setInitialLocationSet] = useState(false);
@@ -129,14 +127,14 @@ const HomePage = () => {
             });
         }
     }, []);
-    
-    // 사이드 패널의 '혼잡도 변경' 버튼 클릭 시 호출될 함수
+
+    // ⭐ 혼잡도 변경 모달 열기 함수
     const onCongestionChangeClick = useCallback((restaurant) => {
         setSelectedRestaurant(restaurant);
         setShowCongestionModal(true);
     }, []);
 
-    // 혼잡도 변경 모달에서 호출될 함수
+    // ⭐ 혼잡도 변경 함수
     const handleCongestionChange = useCallback((newCongestion) => {
         if (selectedRestaurant) {
             setRestaurantList(prevList =>
@@ -147,6 +145,16 @@ const HomePage = () => {
         }
         setShowCongestionModal(false);
     }, [selectedRestaurant]);
+
+    // ⭐ 식당 마커 클릭 시 호출되는 함수
+    const handleMarkerClick = useCallback((placeId) => {
+        handleListItemClick(placeId);
+    }, [handleListItemClick]);
+
+    // ⭐ 식당 리스트 클릭 시 상세 페이지로 이동하는 함수
+    const handleRestaurantClick = useCallback((restaurant) => {
+        navigate(`/restaurant/${restaurant.id}`);
+    }, [navigate]);
 
     // 식당 마커를 생성하고 지도에 표시하는 함수
     const createAndDisplayMarker = useCallback((place, map, index = null, onMarkerClick) => {
@@ -251,7 +259,7 @@ const HomePage = () => {
                         const additionalData = generateDynamicDetails();
                         const mergedPlace = { ...place, ...additionalData };
 
-                        const marker = createAndDisplayMarker(mergedPlace, mapInstance, index + 1, handleListItemClick);
+                        const marker = createAndDisplayMarker(mergedPlace, mapInstance, index + 1, handleMarkerClick);
                         newMarkers.push(marker);
                         bounds.extend(new window.kakao.maps.LatLng(mergedPlace.y, mergedPlace.x));
                         newRestaurantList.push(mergedPlace);
@@ -277,10 +285,14 @@ const HomePage = () => {
         } else {
             ps.categorySearch('FD6', callback, searchOptions);
         }
-    }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker, isMobile, handleListItemClick]);
+    }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker, isMobile, handleMarkerClick]);
 
     // 검색 버튼 클릭 시 키워드 검색을 실행하는 함수
     const handleKeywordSearch = useCallback(() => {
+        if (!mapInstance) {
+            alert('지도가 로딩되지 않았습니다. 잠시 후 다시 시도해주세요.');
+            return;
+        }
         if (searchTerm.trim() === '') {
             alert("검색어를 입력해주세요.");
             return;
@@ -504,8 +516,8 @@ const HomePage = () => {
             <RestaurantListPanel
                 restaurantList={restaurantList}
                 handleListItemClick={handleListItemClick}
-                // 혼잡도 변경 함수를 props로 전달
-                onCongestionChangeClick={onCongestionChangeClick}
+                onCongestionChangeClick={onCongestionChangeClick} 
+                onRestaurantClick={handleRestaurantClick} 
                 showRestaurantPanel={showRestaurantPanel}
                 setShowRestaurantPanel={setShowRestaurantPanel}
             />
@@ -521,13 +533,12 @@ const HomePage = () => {
                 setShowLocationPanel={setShowLocationPanel}
                 handleLocationUpdate={handleLocationUpdate}
             />
-
-            {/* 혼잡도 변경 모달 조건부 렌더링 */}
-            {showCongestionModal && selectedRestaurant && (
+            
+            {showCongestionModal && (
                 <CongestionChangePanel
+                    restaurant={selectedRestaurant}
                     onClose={() => setShowCongestionModal(false)}
                     onCongestionChange={handleCongestionChange}
-                    initialCongestion={selectedRestaurant.congestion}
                 />
             )}
         </div>
@@ -535,3 +546,4 @@ const HomePage = () => {
 };
 
 export default HomePage;
+

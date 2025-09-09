@@ -52,7 +52,7 @@ function App() {
                 <MerchantSelectPanel onSelectStore={handleSelectStore} />
               )
             } />
-            <Route path="/restaurant-detail/:id" element={<RestaurantDetailPage />} />
+            <Route path="/restaurant-detail/:restaurantId" element={<RestaurantDetailPage />} />
           </Routes>
         </div>
       </BrowserRouter>

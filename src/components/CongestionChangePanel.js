@@ -1,9 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const CongestionChangePanel = ({ onClose, onCongestionChange, initialCongestion }) => {
-    // 혼잡도 정보가 없는 경우를 대비하여 기본값 설정
-    const initialSelection = initialCongestion || '보통';
-    const [newCongestion, setNewCongestion] = useState(initialSelection);
+// 혼잡도에 따라 색상을 반환하는 헬퍼 함수
+const getCongestionColor = (congestion) => {
+    switch (congestion) {
+        case '매우 혼잡':
+            return '#dc3545'; // 빨강
+        case '혼잡':
+            return '#ffc107'; // 주황 (경고색)
+        case '보통':
+            return '#17a2b8'; // 하늘색 (정보색)
+        case '여유':
+            return '#28a745'; // 초록 (성공색)
+        default:
+            return '#6c757d'; // 회색 (기본/정보 없음)
+    }
+};
+
+const CongestionChangePanel = ({ onClose, onCongestionChange, restaurant }) => {
+    const initialCongestion = restaurant ? restaurant.congestion : '보통';
+    const [newCongestion, setNewCongestion] = useState(initialCongestion);
+
+    useEffect(() => {
+        setNewCongestion(restaurant ? restaurant.congestion : '보통');
+    }, [restaurant]);
 
     const handleConfirm = () => {
         onCongestionChange(newCongestion);
@@ -32,14 +51,14 @@ const CongestionChangePanel = ({ onClose, onCongestionChange, initialCongestion 
             }}>
                 <h3 style={{ marginTop: 0, color: '#333' }}>혼잡도 변경</h3>
                 
-                {/* 현재 혼잡도 정보를 조건부로 표시 */}
                 <div style={{
                     fontSize: '15px',
                     marginBottom: '10px',
                     fontWeight: 'bold',
-                    color: initialCongestion ? '#007bff' : '#dc3545'
+                    // ⭐ 현재 혼잡도에 따라 색상 함수를 적용합니다.
+                    color: getCongestionColor(restaurant?.congestion)
                 }}>
-                    현재 혼잡도: {initialCongestion ? initialCongestion : '정보 없음'}
+                    현재 혼잡도: {restaurant?.congestion ? restaurant.congestion : '정보 없음'}
                 </div>
 
                 <p style={{ color: '#555' }}>변경할 혼잡도를 선택해주세요.</p>
