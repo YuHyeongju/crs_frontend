@@ -15,7 +15,7 @@ import { AuthProvider } from './context/AuthContext';                       // �
 import MerchantSelectPanel from './components/MerchantSelectPanel';         // 식당 선택 컴포넌트 추가
 import MerchantEditDeletePanel from './components/MerchantEditDeletePanel'; // 식당 수정/삭제 컴포넌트 추가
 import MerchantRegisterPanel from './components/MerchantRegisterPanel';     // 식당 등록 컴포넌트 추가
-
+import RestaurantDetailPage from './pages/RestaurantDetailPage';            // 식당 상세보기 페이지
 
 function App() {
   const [selectedStoreId, setSelectedStoreId] = useState(null);
@@ -52,7 +52,7 @@ function App() {
                 <MerchantSelectPanel onSelectStore={handleSelectStore} />
               )
             } />
-            
+            <Route path="/restaurant-detail/:id" element={<RestaurantDetailPage />} />
           </Routes>
         </div>
       </BrowserRouter>
