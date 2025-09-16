@@ -65,8 +65,8 @@ const LocationPanel = ({ currentUserCoords, showLocationPanel, setShowLocationPa
                 <button
                     onClick={() => setShowLocationPanel(true)}
                     style={{
-                        position: 'absolute',
-                        top: isMobile ? '170px' : '13vh',
+                        position: 'fixed',
+                        top: isMobile ? '170px' : '16.5vh',
                         right: RIGHT_OFFSET_DESKTOP,
                         backgroundColor: '#007bff',
                         color: 'white',
