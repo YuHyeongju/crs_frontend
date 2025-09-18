@@ -14,7 +14,7 @@ const RestaurantListPanel = ({ restaurantList, handleListItemClick, onCongestion
       {showRestaurantPanel && (
         <div
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: isMobile ? '0' : '60px',
             left: isMobile ? '0' : '0',
             width: isMobile ? '100vw' : RESTAURANT_PANEL_WIDTH_DESKTOP,
@@ -32,9 +32,9 @@ const RestaurantListPanel = ({ restaurantList, handleListItemClick, onCongestion
           <button
             onClick={() => setShowRestaurantPanel(false)}
             style={{
-              position: 'absolute',
-              top: isMobile ? '20px' : '1vh',
-              right: isMobile ? '20px' : '1vw',
+              position: 'fixed',
+              top: isMobile ? '20px' : '2.5vh',
+              right: isMobile ? '20px' : '2.5vw',
               backgroundColor: '#fff',
               border: '1px solid #ddd',
               borderRadius: '50%',
