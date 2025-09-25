@@ -36,30 +36,28 @@
 //     const [mapInstance, setMapInstance] = useState(null);
 //     const [currentUserCoords, setCurrentUserCoords] = useState(null);
 //     const [showRestaurantPanel, setShowRestaurantPanel] = useState(true);
-//     const [showLocationPanel, setShowLocationPanel] = useState(true);
+//     const [showLocationPanel, setShowLocationPanel] = useState(false); // 내 위치 정보 패널 상태
 //     const [restaurantList, setRestaurantList] = useState([]);
 //     const [searchTerm, setSearchTerm] = useState('');
 //     const [currentMapType, setCurrentMapType] = useState('road');
 //     const [isMobile, setIsMobile] = useState(window.innerWidth <= MOBILE_BREAKPOINT);
 //     const [showCongestionModal, setShowCongestionModal] = useState(false);
 //     const [selectedRestaurant, setSelectedRestaurant] = useState(null);
+//     const [userMarkerVisible, setUserMarkerVisible] = useState(true); // 현재 위치 핀 가시성 상태
 
 //     // DOM 요소 및 객체 참조 (useRef)
 //     const mapContainerRef = useRef(null);
-//     const clickedMarkerRef = useRef(null);
+//     const clickedMarkerRef = useRef(null); // 임의의 위치 클릭 시 생성되는 마커 참조
 //     const userLocationMarkerRef = useRef(null);
 //     const restaurantMarkersRef = useRef([]);
 //     const infoWindowRef = useRef(null);
-//     const userMarkerImageRef = useRef(null);
 //     const userLocationBlinkIntervalRef = useRef(null);
     
+//     // useRef를 사용하여 함수 참조를 저장하여 종속성 안정화
+//     const searchAndDisplayRestaurantsRef = useRef();
+
 //     // 초기 위치 설정 여부 (useEffect의 무한 호출 방지)
 //     const [initialLocationSet, setInitialLocationSet] = useState(false);
-
-//     // 사용자 위치 정보를 업데이트하는 콜백 함수
-//     const handleLocationUpdate = useCallback((coords) => {
-//         setCurrentUserCoords(coords);
-//     }, []);
 
 //     // 로그아웃 처리 함수
 //     const handleLogout = useCallback(() => {
@@ -89,17 +87,14 @@
 //             infoWindowRef.current.close();
 //         }
 //     }, []);
-
+    
 //     // 현재 위치 마커의 깜빡임을 멈추는 함수
 //     const stopBlinkingUserMarker = useCallback(() => {
 //         if (userLocationBlinkIntervalRef.current) {
 //             clearInterval(userLocationBlinkIntervalRef.current);
 //             userLocationBlinkIntervalRef.current = null;
-//             if (userLocationMarkerRef.current) {
-//                 userLocationMarkerRef.current.setMap(mapInstance);
-//             }
 //         }
-//     }, [mapInstance]);
+//     }, []);
 
 //     // 현재 위치 마커의 깜빡임을 시작하는 함수
 //     const startBlinkingUserMarker = useCallback(() => {
@@ -199,42 +194,45 @@
 //                     ${place.congestion ? `혼잡도: ${place.congestion}` : ''}
 //                 </div>
 //             `;
-//             // 인포윈도우 열기
-//             if (infoWindowRef.current) {
-//                 infoWindowRef.current.setContent(content);
-//                 infoWindowRef.current.open(map, marker);
-//             } else {
+//             // 인포윈도우가 이미 존재하면 내용만 업데이트, 없으면 새로 생성
+//             if (!infoWindowRef.current) {
 //                 infoWindowRef.current = new window.kakao.maps.InfoWindow({
-//                     content: content,
 //                     removable: true
 //                 });
-//                 infoWindowRef.current.open(map, marker);
 //             }
 
-//             // 인포윈도우가 닫힐 때 현재 위치 마커 깜빡임 재시작
-//             if (infoWindowRef.current) {
-//                 window.kakao.maps.event.addListener(infoWindowRef.current, 'close', () => {
-//                     if (userLocationMarkerRef.current && userLocationBlinkIntervalRef.current === null) {
-//                         startBlinkingUserMarker();
-//                     }
-//                 });
+//             // 인포윈도우의 내용을 업데이트하고 지도에 표시
+//             infoWindowRef.current.setContent(content);
+//             infoWindowRef.current.open(map, marker);
+            
+//             // 인포윈도우가 닫힐 때 현재 위치 핀 다시 보이게 하기
+//             window.kakao.maps.event.removeListener(infoWindowRef.current, 'close');
+//             window.kakao.maps.event.addListener(infoWindowRef.current, 'close', () => {
+//                 setUserMarkerVisible(true);
+//             });
+
+//             // 마커 클릭 시 현재 위치 핀 숨김
+//             setUserMarkerVisible(false);
+
+//             // 마커 클릭 시 해당 위치로 지도 중심 이동 (확대 레벨은 유지)
+//             map.setCenter(position);
+
+//             // 임시 클릭 마커가 있다면 제거
+//             if (clickedMarkerRef.current) {
+//                 clickedMarkerRef.current.setMap(null);
+//                 clickedMarkerRef.current = null;
 //             }
 
 //             // 리스트 패널의 해당 항목으로 스크롤
 //             if (onMarkerClick) {
 //                 onMarkerClick(place.id);
 //             }
-
-//             // 마커 클릭 시 현재 위치 마커 깜빡임 중지
-//             if (userLocationMarkerRef.current && userLocationBlinkIntervalRef.current) {
-//                 stopBlinkingUserMarker();
-//             }
 //         });
 //         return marker;
-//     }, [infoWindowRef, stopBlinkingUserMarker, startBlinkingUserMarker, userLocationMarkerRef]);
+//     }, [infoWindowRef, setUserMarkerVisible]);
 
 //     // 중심 좌표를 기준으로 식당을 검색하고 마커로 표시하는 함수
-//     const searchAndDisplayRestaurants = useCallback((centerLatLng, searchType = 'initial', keyword = '') => {
+//     const searchAndDisplayRestaurants = useCallback((centerLatLng, searchType = 'initial', keyword = '', setMapBounds = true) => {
 //         if (!mapInstance || !window.kakao || !window.kakao.maps.services) {
 //             return;
 //         }
@@ -258,7 +256,6 @@
 //                     if (place.category_group_code === 'FD6') {
 //                         const additionalData = generateDynamicDetails();
 //                         const mergedPlace = { ...place, ...additionalData };
-
 //                         const marker = createAndDisplayMarker(mergedPlace, mapInstance, index + 1, handleMarkerClick);
 //                         newMarkers.push(marker);
 //                         bounds.extend(new window.kakao.maps.LatLng(mergedPlace.y, mergedPlace.x));
@@ -267,11 +264,14 @@
 //                 });
 //                 restaurantMarkersRef.current = newMarkers;
 //                 setRestaurantList(newRestaurantList);
-//                 if (newMarkers.length > 0) {
+                
+//                 // setMapBounds가 true일 때만 Bounds 설정하여 줌 레벨 고정 방지
+//                 if (newMarkers.length > 0 && setMapBounds) {
 //                     mapInstance.setBounds(bounds);
-//                 } else {
+//                 } else if (newMarkers.length === 0) {
 //                     alert(`주변에 검색된 음식점이 없습니다.`);
 //                 }
+
 //             } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
 //                 alert(`주변에 검색된 음식점이 없습니다.`);
 //                 setRestaurantList([]);
@@ -287,6 +287,12 @@
 //         }
 //     }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker, isMobile, handleMarkerClick]);
 
+//     // useRef에 최신 함수를 저장하여 항상 최신 상태를 참조하도록 함
+//     useEffect(() => {
+//         searchAndDisplayRestaurantsRef.current = searchAndDisplayRestaurants;
+//     }, [searchAndDisplayRestaurants]);
+    
+
 //     // 검색 버튼 클릭 시 키워드 검색을 실행하는 함수
 //     const handleKeywordSearch = useCallback(() => {
 //         if (!mapInstance) {
@@ -297,188 +303,228 @@
 //             alert("검색어를 입력해주세요.");
 //             return;
 //         }
+//         // 임시 클릭 마커가 있다면 제거
 //         if (clickedMarkerRef.current) {
 //             clickedMarkerRef.current.setMap(null);
 //             clickedMarkerRef.current = null;
 //         }
-//         if (userLocationMarkerRef.current) {
-//             userLocationMarkerRef.current.setMap(null);
-//             stopBlinkingUserMarker();
-//         }
-//         const mapCenter = mapInstance.getCenter();
-//         searchAndDisplayRestaurants(mapCenter, 'keyword', searchTerm);
-//         setShowRestaurantPanel(true);
-//     }, [mapInstance, searchTerm, searchAndDisplayRestaurants, stopBlinkingUserMarker]);
+//         setUserMarkerVisible(false); // 키워드 검색 시 현재 위치 핀 숨기기
+//         // 키워드 검색 시에는 맵 범위 재설정 허용
+//         searchAndDisplayRestaurantsRef.current(mapInstance.getCenter(), 'keyword', searchTerm, true);
+//     }, [mapInstance, searchTerm, setUserMarkerVisible]);
 
-//     // 지도 타입을 일반 지도로 변경하는 함수
-//     const handleRoadmapClick = useCallback(() => {
+//     // 지도 인스턴스 초기화 및 이벤트 리스너 설정
+//     useEffect(() => {
+//         if (!initialLocationSet && window.kakao && window.kakao.maps && mapContainerRef.current) {
+//             window.kakao.maps.load(() => {
+//                 const options = {
+//                     center: new window.kakao.maps.LatLng(35.1795543, 129.0756416),
+//                     level: 3, // 초기 로딩 시의 레벨
+//                 };
+//                 const map = new window.kakao.maps.Map(mapContainerRef.current, options);
+//                 setMapInstance(map);
+
+//                 // 지도 클릭 이벤트를 감지하는 리스너를 등록합니다.
+//                 window.kakao.maps.event.addListener(map, 'click', (mouseEvent) => {
+//                     const latlng = mouseEvent.latLng;
+                    
+//                     // 기존에 찍힌 클릭 마커가 있다면 제거
+//                     if (clickedMarkerRef.current) {
+//                         clickedMarkerRef.current.setMap(null);
+//                         clickedMarkerRef.current = null;
+//                     }
+                    
+//                     // 새로운 임시 마커 생성 및 지도에 표시
+//                     const newMarker = new window.kakao.maps.Marker({
+//                         position: latlng,
+//                         map: map,
+//                         image: new window.kakao.maps.MarkerImage(
+//                             'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_b.png', // 기본 마커와 구분되도록 다른 이미지 사용
+//                             new window.kakao.maps.Size(24, 35)
+//                         ),
+//                     });
+                    
+//                     clickedMarkerRef.current = newMarker;
+
+//                     // 지도 중심을 클릭한 위치로 이동시키고
+//                     map.setCenter(latlng);
+                    
+//                     // 주변 식당을 재검색합니다. (확대 레벨은 유지)
+//                     searchAndDisplayRestaurantsRef.current(latlng, 'click', '', false);
+//                 });
+                
+//                 // 현재 위치 가져오기
+//                 if (navigator.geolocation) {
+//                     navigator.geolocation.getCurrentPosition(
+//                         (position) => {
+//                             const newCoords = {
+//                                 latitude: position.coords.latitude,
+//                                 longitude: position.coords.longitude,
+//                             };
+//                             setCurrentUserCoords(newCoords);
+//                             const moveLatLng = new window.kakao.maps.LatLng(newCoords.latitude, newCoords.longitude);
+//                             map.setCenter(moveLatLng);
+//                             map.setLevel(3); // 최초 위치 설정 시 적정 레벨로 설정
+//                             setInitialLocationSet(true);
+//                             searchAndDisplayRestaurantsRef.current(moveLatLng, 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
+//                         },
+//                         (error) => {
+//                             console.error('위치 정보 가져오기 실패:', error);
+//                             setInitialLocationSet(true);
+//                             searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
+//                         }
+//                     );
+//                 } else {
+//                     console.log('브라우저가 위치 정보를 지원하지 않습니다.');
+//                     setInitialLocationSet(true);
+//                     searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
+//                 }
+//             });
+//         }
+//     }, [initialLocationSet]);
+
+//     // currentUserCoords가 업데이트될 때마다 현재 위치 마커를 생성하고, userMarkerVisible 상태에 따라 표시/숨김
+//     useEffect(() => {
+//         if (mapInstance && currentUserCoords && window.kakao && window.kakao.maps) {
+//             const position = new window.kakao.maps.LatLng(currentUserCoords.latitude, currentUserCoords.longitude);
+//             if (!userLocationMarkerRef.current) {
+//                 userLocationMarkerRef.current = new window.kakao.maps.Marker({
+//                     position: position,
+//                     image: new window.kakao.maps.MarkerImage(
+//                         'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
+//                         new window.kakao.maps.Size(24, 35),
+//                         { offset: new window.kakao.maps.Point(12, 35) }
+//                     ),
+//                     title: "내 위치"
+//                 });
+//             } else {
+//                 userLocationMarkerRef.current.setPosition(position);
+//             }
+//             // userMarkerVisible 상태에 따라 마커 표시/숨김 및 깜빡임 제어
+//             if (userMarkerVisible) {
+//                 userLocationMarkerRef.current.setMap(mapInstance);
+//                 startBlinkingUserMarker();
+//             } else {
+//                 userLocationMarkerRef.current.setMap(null);
+//                 stopBlinkingUserMarker();
+//             }
+//         }
+//     }, [mapInstance, currentUserCoords, userMarkerVisible, startBlinkingUserMarker, stopBlinkingUserMarker]);
+
+//     // 지도 중앙 및 줌 레벨 변경 시 식당 검색 (드래그와 줌 이벤트를 분리하여 처리)
+//     useEffect(() => {
+//         if (mapInstance && initialLocationSet) {
+            
+//             // 1. 드래그 이벤트 핸들러: 지도의 중심이 바뀌었으므로 재검색 실행
+//             const handleDragEnd = () => {
+//                 const center = mapInstance.getCenter();
+//                 // 임시 클릭 마커 제거 로직 유지
+//                 if (clickedMarkerRef.current) {
+//                     clickedMarkerRef.current.setMap(null);
+//                     clickedMarkerRef.current = null;
+//                 }
+//                 // setMapBounds를 false로 전달하여 줌 레벨 고정 방지
+//                 searchAndDisplayRestaurantsRef.current(center, 'dragend', '', false);
+//             };
+
+//             // 2. 줌 변경 이벤트 핸들러: 줌 레벨만 바뀌었으므로 아무것도 하지 않아 재검색 방지
+//             const handleZoomChanged = () => {
+//                 // 확대/축소 시에는 재검색 로직을 실행하지 않아 기존 마커 유지
+//                 // (선택 사항: 줌 변경 시 임시 마커만 제거)
+//                 if (clickedMarkerRef.current) {
+//                     clickedMarkerRef.current.setMap(null);
+//                     clickedMarkerRef.current = null;
+//                 }
+//             };
+            
+//             // 리스너 등록
+//             window.kakao.maps.event.addListener(mapInstance, 'dragend', handleDragEnd);
+//             window.kakao.maps.event.addListener(mapInstance, 'zoom_changed', handleZoomChanged);
+            
+//             // 클린업 함수
+//             return () => {
+//                 window.kakao.maps.event.removeListener(mapInstance, 'dragend', handleDragEnd);
+//                 window.kakao.maps.event.removeListener(mapInstance, 'zoom_changed', handleZoomChanged);
+//             };
+//         }
+//     }, [mapInstance, initialLocationSet]);
+
+//     // 식당 목록이 업데이트될 때 마커 생성
+//     useEffect(() => {
+//         if (mapInstance && restaurantList.length > 0) {
+//             removeRestaurantMarkers();
+//             restaurantList.forEach((restaurant, index) => {
+//                 const marker = createAndDisplayMarker(restaurant, mapInstance, index + 1, handleMarkerClick);
+//                 restaurantMarkersRef.current.push(marker);
+//             });
+//         }
+//     }, [mapInstance, restaurantList, removeRestaurantMarkers, createAndDisplayMarker, handleMarkerClick]);
+
+//     // 리사이즈 시 지도 레이아웃 재조정
+//     useEffect(() => {
+//         if (mapInstance) {
+//             const timer = setTimeout(() => {
+//                 mapInstance.relayout();
+//                 mapInstance.setCenter(mapInstance.getCenter());
+//             }, 300);
+//             return () => clearTimeout(timer);
+//         }
+//     }, [showRestaurantPanel, mapInstance]);
+
+//     // 지도 컨트롤 및 기능 관련 핸들러 함수들
+//     const handleRoadmapClick = () => {
 //         if (mapInstance) {
 //             mapInstance.setMapTypeId(window.kakao.maps.MapTypeId.ROADMAP);
 //             setCurrentMapType('road');
 //         }
-//     }, [mapInstance]);
+//     };
 
-//     // 지도 타입을 스카이뷰로 변경하는 함수
-//     const handleSkyviewClick = useCallback(() => {
+//     const handleSkyviewClick = () => {
 //         if (mapInstance) {
 //             mapInstance.setMapTypeId(window.kakao.maps.MapTypeId.HYBRID);
 //             setCurrentMapType('sky');
 //         }
-//     }, [mapInstance]);
+//     };
 
-//     // 지도를 확대하는 함수
-//     const handleZoomIn = useCallback(() => {
+//     const handleZoomIn = () => {
 //         if (mapInstance) {
-//             const currentLevel = mapInstance.getLevel();
-//             mapInstance.setLevel(currentLevel - 1);
-//         }
-//     }, [mapInstance]);
-
-//     // 지도를 축소하는 함수
-//     const handleZoomOut = useCallback(() => {
-//         if (mapInstance) {
-//             const currentLevel = mapInstance.getLevel();
-//             mapInstance.setLevel(currentLevel + 1);
-//         }
-//     }, [mapInstance]);
-
-//     // 컴포넌트 마운트 시 카카오 지도 API를 로드하고 지도 인스턴스를 생성하는 useEffect
-//     useEffect(() => {
-//         if (mapContainerRef.current && window.kakao && window.kakao.maps) {
-//             window.kakao.maps.load(() => {
-//                 const mapContainer = mapContainerRef.current;
-//                 const mapOption = {
-//                     center: new window.kakao.maps.LatLng(33.450701, 126.570667),
-//                     level: 3
-//                 };
-//                 const map = new window.kakao.maps.Map(mapContainer, mapOption);
-//                 setMapInstance(map);
-//                 infoWindowRef.current = new window.kakao.maps.InfoWindow({ removable: true });
-//                 const redCircleSvg = `
-//                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-//                         <circle cx="12" cy="12" r="10" fill="red" stroke="white" stroke-width="2"/>
-//                     </svg>
-//                 `;
-//                 const redMarkerDataUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(redCircleSvg)}`;
-//                 userMarkerImageRef.current = new window.kakao.maps.MarkerImage(
-//                     redMarkerDataUrl,
-//                     new window.kakao.maps.Size(24, 24),
-//                     { offset: new window.kakao.maps.Point(12, 24) }
-//                 );
-//             });
-//         }
-//     }, []);
-
-//     // currentUserCoords가 변경될 때마다 현재 위치 마커를 업데이트하는 useEffect
-//     useEffect(() => {
-//         if (mapInstance && currentUserCoords) {
-//             const { latitude, longitude } = currentUserCoords;
-//             const userLatLng = new window.kakao.maps.LatLng(latitude, longitude);
-//             if (!initialLocationSet) {
-//                 removeRestaurantMarkers();
-//                 const marker = new window.kakao.maps.Marker({
-//                     map: mapInstance,
-//                     position: userLatLng,
-//                     image: userMarkerImageRef.current,
-//                 });
-//                 userLocationMarkerRef.current = marker;
-//                 mapInstance.setCenter(userLatLng);
-//                 setInitialLocationSet(true);
-//                 startBlinkingUserMarker();
-//                 searchAndDisplayRestaurants(userLatLng, 'initial');
-//             } else {
-//                 if (!clickedMarkerRef.current) {
-//                     if (userLocationMarkerRef.current) {
-//                         userLocationMarkerRef.current.setPosition(userLatLng);
-//                         userLocationMarkerRef.current.setMap(mapInstance);
-//                         startBlinkingUserMarker();
-//                     }
-//                 } else {
-//                     if (userLocationMarkerRef.current) {
-//                         userLocationMarkerRef.current.setMap(null);
-//                         stopBlinkingUserMarker();
-//                     }
-//                 }
+//             const newLevel = mapInstance.getLevel() - 1;
+//             if (newLevel > 0) {
+//                 mapInstance.setLevel(newLevel);
 //             }
-//         } else if (mapInstance && !currentUserCoords && userLocationMarkerRef.current) {
-//             userLocationMarkerRef.current.setMap(null);
-//             userLocationMarkerRef.current = null;
-//             stopBlinkingUserMarker();
 //         }
-//         return () => {
-//             stopBlinkingUserMarker();
-//         };
-//     }, [mapInstance, currentUserCoords, initialLocationSet, searchAndDisplayRestaurants, removeRestaurantMarkers, startBlinkingUserMarker, stopBlinkingUserMarker]);
+//     };
 
-//     // 지도 클릭 시 동작을 정의하는 useEffect
-//     useEffect(() => {
-//         let clickHandler;
+//     const handleZoomOut = () => {
 //         if (mapInstance) {
-//             clickHandler = function (mouseEvent) {
-//                 const latlng = mouseEvent.latLng;
-//                 if (clickedMarkerRef.current) {
-//                     clickedMarkerRef.current.setMap(null);
-//                 }
-//                 if (userLocationMarkerRef.current) {
-//                     userLocationMarkerRef.current.setMap(null);
-//                     stopBlinkingUserMarker();
-//                 }
-//                 const newClickedMarker = new window.kakao.maps.Marker({
-//                     position: latlng,
-//                     map: mapInstance
-//                 });
-//                 clickedMarkerRef.current = newClickedMarker;
-//                 searchAndDisplayRestaurants(latlng, 'click');
-//                 setShowRestaurantPanel(true);
-//             };
-//             window.kakao.maps.event.addListener(mapInstance, 'click', clickHandler);
-//         }
-//         return () => {
-//             if (mapInstance && clickHandler) {
-//                 window.kakao.maps.event.removeListener(mapInstance, 'click', clickHandler);
+//             const newLevel = mapInstance.getLevel() + 1;
+//             if (newLevel <= 14) {
+//                 mapInstance.setLevel(newLevel);
 //             }
-//         };
-//     }, [mapInstance, searchAndDisplayRestaurants, stopBlinkingUserMarker]);
-
-//     // "내 위치로 이동" 버튼 클릭 시 동작을 정의하는 함수
-//     const handleGoToMyLocation = useCallback(() => {
-//         if (!currentUserCoords) {
-//             alert("위치 정보를 가져오는 중입니다. 잠시 후 다시 시도해주세요.");
-//             return;
 //         }
-//         if (mapInstance && userMarkerImageRef.current) {
-//             const { latitude, longitude } = currentUserCoords;
-//             const userLatLng = new window.kakao.maps.LatLng(latitude, longitude);
+//     };
+
+//     const handleGoToMyLocation = () => {
+//         if (mapInstance && currentUserCoords && window.kakao && window.kakao.maps) {
+//             const moveLatLon = new window.kakao.maps.LatLng(currentUserCoords.latitude, currentUserCoords.longitude);
+//             mapInstance.setCenter(moveLatLon);
+            
+//             // 임시 마커가 있다면 제거
 //             if (clickedMarkerRef.current) {
 //                 clickedMarkerRef.current.setMap(null);
 //                 clickedMarkerRef.current = null;
 //             }
-//             mapInstance.setCenter(userLatLng);
-//             if (userLocationMarkerRef.current) {
-//                 userLocationMarkerRef.current.setPosition(userLatLng);
-//                 userLocationMarkerRef.current.setMap(mapInstance);
-//                 userLocationMarkerRef.current.setImage(userMarkerImageRef.current);
-//             } else {
-//                 const marker = new window.kakao.maps.Marker({
-//                     map: mapInstance,
-//                     position: userLatLng,
-//                     image: userMarkerImageRef.current,
-//                 });
-//                 userLocationMarkerRef.current = marker;
-//             }
-//             startBlinkingUserMarker();
-//             searchAndDisplayRestaurants(userLatLng, 'myLocation');
-//             setShowRestaurantPanel(true);
+
+//             // 상태를 업데이트하여 마커를 다시 표시합니다.
+//             setUserMarkerVisible(true);
+            
+//             // 내 위치 주변을 검색하되, 맵 범위는 설정하지 않아 확대 레벨 유지
+//             searchAndDisplayRestaurantsRef.current(moveLatLon, 'myLocation', '', false);
 //         }
-//     }, [mapInstance, currentUserCoords, searchAndDisplayRestaurants, startBlinkingUserMarker]);
+//     };
 
-//     // 지도 너비 및 위치를 계산하는 변수
-//     const mapWidth = isMobile ? '100vw' : (showRestaurantPanel ? `calc(100vw - ${RESTAURANT_PANEL_WIDTH_DESKTOP})` : '100vw');
-//     const mapLeft = isMobile ? '0' : (showRestaurantPanel ? RESTAURANT_PANEL_WIDTH_DESKTOP : '0');
-
-//     // 컴포넌트 렌더링
 //     return (
-//         <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+//         <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
 //             <Header
 //                 searchTerm={searchTerm}
 //                 setSearchTerm={setSearchTerm}
@@ -488,52 +534,88 @@
 //                 isMobile={isMobile}
 //             />
 
+//             {isLoggedIn && (
+//                 <div style={{ position: 'absolute', top: '70px', left: '20px', zIndex: 10, background: 'lightgreen', padding: '5px 10px', borderRadius: '5px' }}>
+//                     로그인 상태입니다.
+//                 </div>
+//             )}
+            
 //             <div
 //                 id="map"
 //                 ref={mapContainerRef}
 //                 style={{
-//                     width: mapWidth,
-//                     height: '100vh',
-//                     backgroundColor: 'lightgray',
-//                     marginTop: isMobile ? '120px' : '60px',
-//                     left: mapLeft,
+//                     width: '100%',
+//                     height: '100%',
 //                     position: 'absolute',
-//                     transition: 'none',
+//                     top: 0,
+//                     left: 0,
+//                     zIndex: 0,
+//                     transform: isMobile && showRestaurantPanel ? `translateX(${RESTAURANT_PANEL_WIDTH_DESKTOP})` : 'translateX(0)',
+//                     transition: 'transform 0.3s ease',
 //                 }}
-//             >
-//                 지도 로딩 중...
-//             </div>
-
-//             <MapControls
-//                 currentMapType={currentMapType}
-//                 handleRoadmapClick={handleRoadmapClick}
-//                 handleSkyviewClick={handleSkyviewClick}
-//                 handleZoomIn={handleZoomIn}
-//                 handleZoomOut={handleZoomOut}
-//                 isMobile={isMobile}
-//             />
-
-//             <RestaurantListPanel
-//                 restaurantList={restaurantList}
-//                 handleListItemClick={handleListItemClick}
-//                 onCongestionChangeClick={onCongestionChangeClick} 
-//                 onRestaurantClick={handleRestaurantClick} 
-//                 showRestaurantPanel={showRestaurantPanel}
-//                 setShowRestaurantPanel={setShowRestaurantPanel}
-//             />
-
-//             <GoToMyLocationButton
-//                 currentUserCoords={currentUserCoords}
-//                 handleGoToMyLocation={handleGoToMyLocation}
-//             />
-
-//             <LocationPanel
-//                 currentUserCoords={currentUserCoords}
-//                 showLocationPanel={showLocationPanel}
-//                 setShowLocationPanel={setShowLocationPanel}
-//                 handleLocationUpdate={handleLocationUpdate}
-//             />
+//             ></div>
             
+//             {mapInstance ? (
+//                 <>
+//                     <MapControls
+//                         isMobile={isMobile}
+//                         currentMapType={currentMapType}
+//                         handleRoadmapClick={handleRoadmapClick}
+//                         handleSkyviewClick={handleSkyviewClick}
+//                         handleZoomIn={handleZoomIn}
+//                         handleZoomOut={handleZoomOut}
+//                     />
+
+//                     <RestaurantListPanel
+//                         restaurantList={restaurantList}
+//                         handleListItemClick={handleListItemClick}
+//                         onCongestionChangeClick={onCongestionChangeClick}
+//                         onRestaurantClick={handleRestaurantClick}
+//                         onMarkerClick={handleMarkerClick}
+//                         showRestaurantPanel={showRestaurantPanel}
+//                         setShowRestaurantPanel={setShowRestaurantPanel}
+//                     />
+                    
+//                     <GoToMyLocationButton
+//                         currentUserCoords={currentUserCoords}
+//                         handleGoToMyLocation={handleGoToMyLocation}
+//                     />
+                    
+//                     {/* LocationPanel 토글 버튼 추가 */}
+//                     <button
+//                         onClick={() => setShowLocationPanel(prev => !prev)}
+//                         style={{
+//                             position: 'fixed',
+//                             top: isMobile ? '130px' : '16.5vh',
+//                             right: isMobile ? '10px' : '0.5vw',
+//                             zIndex: 10,
+//                             padding: '8px 12px',
+//                             border: '1px solid #ccc',
+//                             borderRadius: '5px',
+//                             backgroundColor: showLocationPanel ? '#007bff' : 'rgba(255, 255, 255, 0.9)',
+//                             color: showLocationPanel ? 'white' : '#333',
+//                             cursor: 'pointer',
+//                             boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+//                             fontSize: '14px',
+//                             fontWeight: 'bold',
+//                         }}
+//                     >
+//                         내 위치 정보
+//                     </button>
+                    
+//                     <LocationPanel
+//                         currentUserCoords={currentUserCoords}
+//                         showLocationPanel={showLocationPanel}
+//                         setShowLocationPanel={setShowLocationPanel}
+//                         handleLocationUpdate={setCurrentUserCoords}
+//                     />
+//                 </>
+//             ) : (
+//                 <div style={{ textAlign: 'center', marginTop: 'calc(50vh - 30px)' }}>
+//                     지도 로딩 중...
+//                 </div>
+//             )}
+
 //             {showCongestionModal && (
 //                 <CongestionChangePanel
 //                     restaurant={selectedRestaurant}
@@ -585,7 +667,7 @@ const HomePage = () => {
     const [mapInstance, setMapInstance] = useState(null);
     const [currentUserCoords, setCurrentUserCoords] = useState(null);
     const [showRestaurantPanel, setShowRestaurantPanel] = useState(true);
-    const [showLocationPanel, setShowLocationPanel] = useState(false);
+    const [showLocationPanel, setShowLocationPanel] = useState(false); // 내 위치 정보 패널 상태
     const [restaurantList, setRestaurantList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentMapType, setCurrentMapType] = useState('road');
@@ -596,7 +678,7 @@ const HomePage = () => {
 
     // DOM 요소 및 객체 참조 (useRef)
     const mapContainerRef = useRef(null);
-    const clickedMarkerRef = useRef(null);
+    const clickedMarkerRef = useRef(null); // 임의의 위치 클릭 시 생성되는 마커 참조
     const userLocationMarkerRef = useRef(null);
     const restaurantMarkersRef = useRef([]);
     const infoWindowRef = useRef(null);
@@ -755,7 +837,6 @@ const HomePage = () => {
             infoWindowRef.current.open(map, marker);
             
             // 인포윈도우가 닫힐 때 현재 위치 핀 다시 보이게 하기
-            // 이전 리스너를 제거하고 새로운 리스너를 추가하여 중복을 방지합니다.
             window.kakao.maps.event.removeListener(infoWindowRef.current, 'close');
             window.kakao.maps.event.addListener(infoWindowRef.current, 'close', () => {
                 setUserMarkerVisible(true);
@@ -764,16 +845,25 @@ const HomePage = () => {
             // 마커 클릭 시 현재 위치 핀 숨김
             setUserMarkerVisible(false);
 
+            // 마커 클릭 시 해당 위치로 지도 중심 이동 (확대 레벨은 유지)
+            map.setCenter(position);
+
+            // 임시 클릭 마커가 있다면 제거
+            if (clickedMarkerRef.current) {
+                clickedMarkerRef.current.setMap(null);
+                clickedMarkerRef.current = null;
+            }
+
             // 리스트 패널의 해당 항목으로 스크롤
             if (onMarkerClick) {
                 onMarkerClick(place.id);
             }
         });
         return marker;
-    }, [infoWindowRef, setUserMarkerVisible]); // 종속성 배열을 `infoWindowRef`와 `setUserMarkerVisible`로 수정
+    }, [infoWindowRef, setUserMarkerVisible]);
 
     // 중심 좌표를 기준으로 식당을 검색하고 마커로 표시하는 함수
-    const searchAndDisplayRestaurants = useCallback((centerLatLng, searchType = 'initial', keyword = '') => {
+    const searchAndDisplayRestaurants = useCallback((centerLatLng, searchType = 'initial', keyword = '', setMapBounds = true) => {
         if (!mapInstance || !window.kakao || !window.kakao.maps.services) {
             return;
         }
@@ -805,15 +895,18 @@ const HomePage = () => {
                 });
                 restaurantMarkersRef.current = newMarkers;
                 setRestaurantList(newRestaurantList);
-                if (newMarkers.length > 0) {
+                
+                // setMapBounds가 true일 때만 Bounds 설정하여 줌 레벨 고정 방지
+                if (newMarkers.length > 0 && setMapBounds) {
                     mapInstance.setBounds(bounds);
-                } else {
+                } else if (newMarkers.length === 0) {
                     alert(`주변에 검색된 음식점이 없습니다.`);
                 }
-            } else if (status === window.kakao.maps.maps.services.Status.ZERO_RESULT) {
+
+            } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
                 alert(`주변에 검색된 음식점이 없습니다.`);
                 setRestaurantList([]);
-            } else if (status === window.kakao.maps.maps.services.Status.ERROR) {
+            } else if (status === window.kakao.maps.services.Status.ERROR) {
                 alert(`${searchType} 식당 로딩 중 오류가 발생했습니다.`);
                 setRestaurantList([]);
             }
@@ -841,12 +934,14 @@ const HomePage = () => {
             alert("검색어를 입력해주세요.");
             return;
         }
+        // 임시 클릭 마커가 있다면 제거
         if (clickedMarkerRef.current) {
             clickedMarkerRef.current.setMap(null);
             clickedMarkerRef.current = null;
         }
         setUserMarkerVisible(false); // 키워드 검색 시 현재 위치 핀 숨기기
-        searchAndDisplayRestaurantsRef.current(mapInstance.getCenter(), 'keyword', searchTerm);
+        // 키워드 검색 시에는 맵 범위 재설정 허용
+        searchAndDisplayRestaurantsRef.current(mapInstance.getCenter(), 'keyword', searchTerm, true);
     }, [mapInstance, searchTerm, setUserMarkerVisible]);
 
     // 지도 인스턴스 초기화 및 이벤트 리스너 설정
@@ -855,7 +950,7 @@ const HomePage = () => {
             window.kakao.maps.load(() => {
                 const options = {
                     center: new window.kakao.maps.LatLng(35.1795543, 129.0756416),
-                    level: 3,
+                    level: 3, // 초기 로딩 시의 레벨
                 };
                 const map = new window.kakao.maps.Map(mapContainerRef.current, options);
                 setMapInstance(map);
@@ -864,49 +959,59 @@ const HomePage = () => {
                 window.kakao.maps.event.addListener(map, 'click', (mouseEvent) => {
                     const latlng = mouseEvent.latLng;
                     
-                    // 기존에 찍힌 마커가 있다면 제거
+                    // 기존에 찍힌 클릭 마커가 있다면 제거
                     if (clickedMarkerRef.current) {
                         clickedMarkerRef.current.setMap(null);
+                        clickedMarkerRef.current = null;
                     }
                     
-                    // 새로운 마커 생성 및 지도에 표시
+                    // 새로운 임시 마커 생성 및 지도에 표시
                     const newMarker = new window.kakao.maps.Marker({
                         position: latlng,
                         map: map,
+                        // 👇 수정된 부분: 깨지는 이미지 대신 기본 마커를 사용하도록 image 속성 제거
+                        // image: new window.kakao.maps.MarkerImage(
+                        //     'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_b.png', 
+                        //     new window.kakao.maps.Size(24, 35)
+                        // ),
                     });
                     
                     clickedMarkerRef.current = newMarker;
 
-                    // 지도 중심을 클릭한 위치로 이동시키고 확대 (확대 레벨 3)
+                    // 지도 중심을 클릭한 위치로 이동시키고
                     map.setCenter(latlng);
-                    map.setLevel(3);
+                    
+                    // 주변 식당을 재검색합니다. (확대 레벨은 유지)
+                    searchAndDisplayRestaurantsRef.current(latlng, 'click', '', false);
                 });
                 
                 // 현재 위치 가져오기
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(
                         (position) => {
+                            // 위치 정확도(accuracy) 추가
                             const newCoords = {
                                 latitude: position.coords.latitude,
                                 longitude: position.coords.longitude,
+                                accuracy: position.coords.accuracy, 
                             };
                             setCurrentUserCoords(newCoords);
                             const moveLatLng = new window.kakao.maps.LatLng(newCoords.latitude, newCoords.longitude);
                             map.setCenter(moveLatLng);
-                            map.setLevel(3);
+                            map.setLevel(3); // 최초 위치 설정 시 적정 레벨로 설정
                             setInitialLocationSet(true);
-                            searchAndDisplayRestaurantsRef.current(moveLatLng, 'initial');
+                            searchAndDisplayRestaurantsRef.current(moveLatLng, 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                         },
                         (error) => {
                             console.error('위치 정보 가져오기 실패:', error);
                             setInitialLocationSet(true);
-                            searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial');
+                            searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                         }
                     );
                 } else {
                     console.log('브라우저가 위치 정보를 지원하지 않습니다.');
                     setInitialLocationSet(true);
-                    searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial');
+                    searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                 }
             });
         }
@@ -940,18 +1045,40 @@ const HomePage = () => {
         }
     }, [mapInstance, currentUserCoords, userMarkerVisible, startBlinkingUserMarker, stopBlinkingUserMarker]);
 
-    // 지도 중앙 및 줌 레벨 변경 시 식당 검색
+    // 지도 중앙 및 줌 레벨 변경 시 식당 검색 (드래그와 줌 이벤트를 분리하여 처리)
     useEffect(() => {
         if (mapInstance && initialLocationSet) {
-            const handleMapEvents = () => {
+            
+            // 1. 드래그 이벤트 핸들러: 지도의 중심이 바뀌었으므로 재검색 실행
+            const handleDragEnd = () => {
                 const center = mapInstance.getCenter();
-                searchAndDisplayRestaurantsRef.current(center, 'initial');
+                // 임시 클릭 마커 제거 로직 유지
+                if (clickedMarkerRef.current) {
+                    clickedMarkerRef.current.setMap(null);
+                    clickedMarkerRef.current = null;
+                }
+                // setMapBounds를 false로 전달하여 줌 레벨 고정 방지
+                searchAndDisplayRestaurantsRef.current(center, 'dragend', '', false);
             };
-            window.kakao.maps.event.addListener(mapInstance, 'dragend', handleMapEvents);
-            window.kakao.maps.event.addListener(mapInstance, 'zoom_changed', handleMapEvents);
+
+            // 2. 줌 변경 이벤트 핸들러: 줌 레벨만 바뀌었으므로 아무것도 하지 않아 재검색 방지
+            const handleZoomChanged = () => {
+                // 확대/축소 시에는 재검색 로직을 실행하지 않아 기존 마커 유지
+                // (선택 사항: 줌 변경 시 임시 마커만 제거)
+                if (clickedMarkerRef.current) {
+                    clickedMarkerRef.current.setMap(null);
+                    clickedMarkerRef.current = null;
+                }
+            };
+            
+            // 리스너 등록
+            window.kakao.maps.event.addListener(mapInstance, 'dragend', handleDragEnd);
+            window.kakao.maps.event.addListener(mapInstance, 'zoom_changed', handleZoomChanged);
+            
+            // 클린업 함수
             return () => {
-                window.kakao.maps.event.removeListener(mapInstance, 'dragend', handleMapEvents);
-                window.kakao.maps.event.removeListener(mapInstance, 'zoom_changed', handleMapEvents);
+                window.kakao.maps.event.removeListener(mapInstance, 'dragend', handleDragEnd);
+                window.kakao.maps.event.removeListener(mapInstance, 'zoom_changed', handleZoomChanged);
             };
         }
     }, [mapInstance, initialLocationSet]);
@@ -1015,10 +1142,18 @@ const HomePage = () => {
         if (mapInstance && currentUserCoords && window.kakao && window.kakao.maps) {
             const moveLatLon = new window.kakao.maps.LatLng(currentUserCoords.latitude, currentUserCoords.longitude);
             mapInstance.setCenter(moveLatLon);
-            mapInstance.setLevel(3);
             
-            // 수정된 부분: 상태를 업데이트하여 마커를 다시 표시합니다.
+            // 임시 마커가 있다면 제거
+            if (clickedMarkerRef.current) {
+                clickedMarkerRef.current.setMap(null);
+                clickedMarkerRef.current = null;
+            }
+
+            // 상태를 업데이트하여 마커를 다시 표시합니다.
             setUserMarkerVisible(true);
+            
+            // 내 위치 주변을 검색하되, 맵 범위는 설정하지 않아 확대 레벨 유지
+            searchAndDisplayRestaurantsRef.current(moveLatLon, 'myLocation', '', false);
         }
     };
 
@@ -1127,4 +1262,3 @@ const HomePage = () => {
 };
 
 export default HomePage;
-
