@@ -338,10 +338,11 @@
 //                     const newMarker = new window.kakao.maps.Marker({
 //                         position: latlng,
 //                         map: map,
-//                         image: new window.kakao.maps.MarkerImage(
-//                             'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_b.png', // 기본 마커와 구분되도록 다른 이미지 사용
-//                             new window.kakao.maps.Size(24, 35)
-//                         ),
+//                         // 👇 수정된 부분: 깨지는 이미지 대신 기본 마커를 사용하도록 image 속성 제거
+//                         // image: new window.kakao.maps.MarkerImage(
+//                         //     'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_b.png', 
+//                         //     new window.kakao.maps.Size(24, 35)
+//                         // ),
 //                     });
                     
 //                     clickedMarkerRef.current = newMarker;
@@ -357,9 +358,11 @@
 //                 if (navigator.geolocation) {
 //                     navigator.geolocation.getCurrentPosition(
 //                         (position) => {
+//                             // 위치 정확도(accuracy) 추가
 //                             const newCoords = {
 //                                 latitude: position.coords.latitude,
 //                                 longitude: position.coords.longitude,
+//                                 accuracy: position.coords.accuracy, 
 //                             };
 //                             setCurrentUserCoords(newCoords);
 //                             const moveLatLng = new window.kakao.maps.LatLng(newCoords.latitude, newCoords.longitude);
@@ -629,6 +632,7 @@
 
 // export default HomePage;
 
+
 import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
@@ -686,9 +690,9 @@ const HomePage = () => {
     
     // useRef를 사용하여 함수 참조를 저장하여 종속성 안정화
     const searchAndDisplayRestaurantsRef = useRef();
-
-    // 초기 위치 설정 여부 (useEffect의 무한 호출 방지)
-    const [initialLocationSet, setInitialLocationSet] = useState(false);
+    
+    // ⭐ [수정] 지도 초기화 여부를 useRef로 관리하여 StrictMode에서 이중 로드 방지
+    const mapInitializedRef = useRef(false);
 
     // 로그아웃 처리 함수
     const handleLogout = useCallback(() => {
@@ -945,8 +949,16 @@ const HomePage = () => {
     }, [mapInstance, searchTerm, setUserMarkerVisible]);
 
     // 지도 인스턴스 초기화 및 이벤트 리스너 설정
+    // ⭐ [수정] 의존성 배열을 비우고 mapInitializedRef를 사용하여 StrictMode에서 이중 로드 방지
     useEffect(() => {
-        if (!initialLocationSet && window.kakao && window.kakao.maps && mapContainerRef.current) {
+        // 단 한 번만 실행되도록 보장
+        if (mapInitializedRef.current) return;
+        
+        if (window.kakao && window.kakao.maps && mapContainerRef.current) {
+            
+            // 초기화 플래그를 true로 설정하여 재실행 방지
+            mapInitializedRef.current = true; 
+
             window.kakao.maps.load(() => {
                 const options = {
                     center: new window.kakao.maps.LatLng(35.1795543, 129.0756416),
@@ -969,11 +981,6 @@ const HomePage = () => {
                     const newMarker = new window.kakao.maps.Marker({
                         position: latlng,
                         map: map,
-                        // 👇 수정된 부분: 깨지는 이미지 대신 기본 마커를 사용하도록 image 속성 제거
-                        // image: new window.kakao.maps.MarkerImage(
-                        //     'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_b.png', 
-                        //     new window.kakao.maps.Size(24, 35)
-                        // ),
                     });
                     
                     clickedMarkerRef.current = newMarker;
@@ -999,23 +1006,23 @@ const HomePage = () => {
                             const moveLatLng = new window.kakao.maps.LatLng(newCoords.latitude, newCoords.longitude);
                             map.setCenter(moveLatLng);
                             map.setLevel(3); // 최초 위치 설정 시 적정 레벨로 설정
-                            setInitialLocationSet(true);
+                            // ⭐ [수정] setInitialLocationSet(true); 제거
                             searchAndDisplayRestaurantsRef.current(moveLatLng, 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                         },
                         (error) => {
                             console.error('위치 정보 가져오기 실패:', error);
-                            setInitialLocationSet(true);
+                            // ⭐ [수정] setInitialLocationSet(true); 제거
                             searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                         }
                     );
                 } else {
                     console.log('브라우저가 위치 정보를 지원하지 않습니다.');
-                    setInitialLocationSet(true);
+                    // ⭐ [수정] setInitialLocationSet(true); 제거
                     searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                 }
             });
         }
-    }, [initialLocationSet]);
+    }, []); // ⭐ [수정] 의존성 배열을 빈 배열로 설정
 
     // currentUserCoords가 업데이트될 때마다 현재 위치 마커를 생성하고, userMarkerVisible 상태에 따라 표시/숨김
     useEffect(() => {
@@ -1046,8 +1053,10 @@ const HomePage = () => {
     }, [mapInstance, currentUserCoords, userMarkerVisible, startBlinkingUserMarker, stopBlinkingUserMarker]);
 
     // 지도 중앙 및 줌 레벨 변경 시 식당 검색 (드래그와 줌 이벤트를 분리하여 처리)
+    // ⭐ [수정] initialLocationSet 대신 mapInstance만 의존성 배열에 포함
     useEffect(() => {
-        if (mapInstance && initialLocationSet) {
+        // 지도 인스턴스가 생성되었는지 확인 (mapInitializedRef.current = true 상태와 동일)
+        if (mapInstance) {
             
             // 1. 드래그 이벤트 핸들러: 지도의 중심이 바뀌었으므로 재검색 실행
             const handleDragEnd = () => {
@@ -1064,7 +1073,6 @@ const HomePage = () => {
             // 2. 줌 변경 이벤트 핸들러: 줌 레벨만 바뀌었으므로 아무것도 하지 않아 재검색 방지
             const handleZoomChanged = () => {
                 // 확대/축소 시에는 재검색 로직을 실행하지 않아 기존 마커 유지
-                // (선택 사항: 줌 변경 시 임시 마커만 제거)
                 if (clickedMarkerRef.current) {
                     clickedMarkerRef.current.setMap(null);
                     clickedMarkerRef.current = null;
@@ -1081,7 +1089,7 @@ const HomePage = () => {
                 window.kakao.maps.event.removeListener(mapInstance, 'zoom_changed', handleZoomChanged);
             };
         }
-    }, [mapInstance, initialLocationSet]);
+    }, [mapInstance]); // ⭐ [수정] initialLocationSet 제거
 
     // 식당 목록이 업데이트될 때 마커 생성
     useEffect(() => {
@@ -1095,6 +1103,7 @@ const HomePage = () => {
     }, [mapInstance, restaurantList, removeRestaurantMarkers, createAndDisplayMarker, handleMarkerClick]);
 
     // 리사이즈 시 지도 레이아웃 재조정
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (mapInstance) {
             const timer = setTimeout(() => {
