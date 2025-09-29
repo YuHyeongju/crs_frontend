@@ -371,18 +371,18 @@ const HomePage = () => {
                             const moveLatLng = new window.kakao.maps.LatLng(newCoords.latitude, newCoords.longitude);
                             map.setCenter(moveLatLng);
                             map.setLevel(3); // 최초 위치 설정 시 적정 레벨로 설정
-                            // ⭐ [수정] setInitialLocationSet(true); 제거
+                            
                             searchAndDisplayRestaurantsRef.current(moveLatLng, 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                         },
                         (error) => {
                             console.error('위치 정보 가져오기 실패:', error);
-                            // ⭐ [수정] setInitialLocationSet(true); 제거
+                            
                             searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                         }
                     );
                 } else {
                     console.log('브라우저가 위치 정보를 지원하지 않습니다.');
-                    // ⭐ [수정] setInitialLocationSet(true); 제거
+                    
                     searchAndDisplayRestaurantsRef.current(map.getCenter(), 'initial', '', true); // 초기 로딩 시에는 맵 범위 설정 허용
                 }
             });
@@ -594,8 +594,8 @@ const HomePage = () => {
                         onClick={() => setShowLocationPanel(prev => !prev)}
                         style={{
                             position: 'fixed',
-                            top: isMobile ? '130px' : '16.5vh',
-                            right: isMobile ? '10px' : '0.5vw',
+                            top: isMobile ? '130px' : '115px',
+                            right: isMobile ? '10px' : '10px',
                             zIndex: 10,
                             padding: '8px 12px',
                             border: '1px solid #ccc',

@@ -33,8 +33,8 @@ const RestaurantListPanel = ({ restaurantList, handleListItemClick, onCongestion
             onClick={() => setShowRestaurantPanel(false)}
             style={{
               position: 'fixed',
-              top: isMobile ? '20px' : '2.5vh',
-              right: isMobile ? '20px' : '2.5vw',
+              top: isMobile ? '20px' : '15px',
+              right: isMobile ? '20px' : '35px',
               backgroundColor: '#fff',
               border: '1px solid #ddd',
               borderRadius: '50%',
