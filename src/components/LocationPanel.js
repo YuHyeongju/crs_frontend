@@ -103,8 +103,8 @@ const LocationPanel = ({ currentUserCoords, showLocationPanel, setShowLocationPa
     return (
         <div style={{
             position: 'fixed',
-            top: '100px',
-            right: '10px',
+            top: '60px',
+            right: '0px',
             width: '300px',
             background: 'white',
             border: '1px solid #ddd',
