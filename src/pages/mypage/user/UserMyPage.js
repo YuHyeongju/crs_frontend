@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaChevronRight, FaUser, FaGift, FaHeart, FaCommentDots, FaMapMarkerAlt } from 'react-icons/fa';
-import MyInfoPanel from './MyInfoPanel';
-import RewardPanel from './RewardPanel';
+import UserMyInfoPanel from './UserMyInfoPanel';
+import RewardPanel from '../../../components/reward/RewardPanel';
 import BookmarksPanel from './BookmarksPanel';
 import MyReviewsPanel from './MyReviewsPanel';
 
@@ -139,7 +139,7 @@ const UserMyPage = () => {
         </div>
 
         <div style={styles.panelContainer}>
-          {activePanel === 'info' && <MyInfoPanel />}
+          {activePanel === 'info' && <UserMyInfoPanel />}
           {activePanel === 'rewards' && <RewardPanel />}
           {activePanel === 'bookmarks' && <BookmarksPanel />}
           {activePanel === 'reviews' && <MyReviewsPanel />}

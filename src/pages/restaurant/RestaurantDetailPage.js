@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import HomeTab from '../components/HomeTab';
-import PhotosTab from '../components/PhotosTab';
-import MenuTab from '../components/MenuTab';
-import ReviewsTab from '../components/ReviewsTab';
+import HomeTab from './tabs/HomeTab';
+import PhotosTab from './tabs/PhotosTab';
+import MenuTab from './tabs/MenuTab';
+import ReviewsTab from './tabs/ReviewsTab';
 
 const RestaurantDetailPage = () => {
     const navigate = useNavigate();

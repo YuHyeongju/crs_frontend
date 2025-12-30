@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaChevronRight, FaUser, FaStore, FaChartLine, FaGift, FaPlus, FaMapMarkerAlt } from 'react-icons/fa';
-import MerchantMyInfoPanel from '../components/MerchantMyInfoPanel';
-import MerchantRegisterPanel from '../components/MerchantRegisterPanel';
-import MerchantEditDeletePanel from '../components/MerchantEditDeletePanel';
-import MerchantCongestionPanel from '../components/MerchantCongestionPanel';
-import MerchantSelectPanel from '../components/MerchantSelectPanel'; // 식당 선택 패널
-import RewardPanel from '../components/RewardPanel';
+import MerchantMyInfoPanel from '../merchant/MerchantMyInfoPanel';
+import MerchantRegisterPanel from '../merchant/MerchantRegisterPanel';
+import MerchantEditDeletePanel from '../merchant/MerchantEditDeletePanel';
+import MerchantCongestionPanel from '../merchant/MerchantCongestionPanel';
+import MerchantSelectPanel from '../merchant/MerchantSelectPanel';          // 식당 선택 패널
+import RewardPanel from '../../../components/reward/RewardPanel';
 
 const MerchantMyPage = () => {
   const [activePanel, setActivePanel] = useState('info');

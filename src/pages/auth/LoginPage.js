@@ -1,40 +1,59 @@
+
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaMapMarkerAlt } from 'react-icons/fa';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../../context/AuthContext';
+import axios from 'axios';
 
 function LoginPage() {
   const navigate = useNavigate();
   const { login } = useContext(AuthContext);
 
-  // 미리 정해둔 가짜 아이디와 비밀번호
-  const correctId = 'test';
-  const correctPassword = '1234';
+  // 사용자가 입력할 아이디와 비밀번호 상태
+  const [id, setId] = useState('');
+  const [pw, setPw] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // 로그인 처리 중 상태 관리
 
-  // 사용자가 입력할 아이디와 비밀번호를 관리할 상태
-  const [userId, setUserId] = useState('');
-  const [password, setPassword] = useState('');
-
-  // 테스트할 사용자 역할을 여기에 설정하세요.
-  // 'general', 'merchant', 'admin' 중 하나를 입력하세요.
-  // 이 변수 값을 변경하여 다양한 사용자 유형으로 로그인할 수 있습니다.
-  const testUserRole = 'merchant';
-
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
-    
-    // 입력된 값과 미리 정해둔 값을 비교
-    if (userId === correctId && password === correctPassword) {
-      alert('로그인 되었습니다.');
-      
-      // 로그인 성공 시 AuthContext의 login 함수를 호출하여
-      // 임의로 설정한 역할을 전달합니다.
-      login(testUserRole);
-      
-      // 메인 페이지로 이동
-      navigate('/');
-    } else {
-      alert('아이디나 비밀번호가 틀렸습니다.');
+
+    // 입력값 유효성 검사
+    if (!id || !pw) {
+      alert('아이디와 비밀번호를 모두 입력해주세요.');
+      return;
+    }
+
+    setIsLoading(true); // 로딩 시작
+
+    try {
+      // 1. 백엔드 로그인 API 호출
+      const response = await axios.post('/api/auth/login', {
+        id: id,      
+        pw: pw    
+      }, {
+        withCredentials: true // 세션/쿠키 연동 시 필수
+      });
+
+      if (response.status === 200) {
+        console.log("백엔드 로그인 통신 성공")
+
+        const userData = response.data;
+        
+        alert(`${userData.name || id}님, 환영합니다!`);
+        
+        // 3. AuthContext의 login 함수 호출 (서버에서 준 실제 역할을 전달)
+        login(userData.role); 
+        
+        // 4. 메인 페이지로 이동
+        navigate('/');
+      }
+    } catch (error) {
+      console.error("로그인 시도 에러:", error);
+      // 서버에서 보낸 에러 메시지가 있다면 출력, 없으면 기본 메시지
+      const errorMessage = error.response?.data || "아이디 또는 비밀번호가 일치하지 않습니다.";
+      alert(errorMessage);
+    } finally {
+      setIsLoading(false); // 로딩 종료
     }
   };
 
@@ -52,17 +71,19 @@ function LoginPage() {
         <form onSubmit={handleLoginSubmit}>
           <input
             type="text"
-            placeholder="아이디 또는 이메일"
+            placeholder="아이디"
             style={styles.inputField}
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
+            value={id}
+            onChange={(e) => setId(e.target.value)}
+            disabled={isLoading}
           />
           <input
             type="password"
             placeholder="비밀번호"
             style={styles.inputField}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            disabled={isLoading}
           />
 
           <div style={styles.rememberMeContainer}>
@@ -70,8 +91,16 @@ function LoginPage() {
             <label htmlFor="rememberMe" style={styles.rememberMeLabel}>로그인 기억</label>
           </div>
 
-          <button type="submit" style={styles.loginButton}>
-            로그인
+          <button 
+            type="submit" 
+            style={{
+              ...styles.loginButton, 
+              backgroundColor: isLoading ? '#bdc3c7' : '#007bff',
+              cursor: isLoading ? 'not-allowed' : 'pointer'
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? '로그인 중...' : '로그인'}
           </button>
         </form>
 
@@ -160,12 +189,10 @@ const styles = {
   loginButton: {
     width: '100%',
     padding: '15px',
-    backgroundColor: '#007bff',
     color: 'white',
     border: 'none',
     borderRadius: '5px',
     fontSize: '18px',
-    cursor: 'pointer',
     transition: 'background-color 0.3s ease',
   },
   linksContainer: {
@@ -188,4 +215,3 @@ const styles = {
 };
 
 export default LoginPage;
-

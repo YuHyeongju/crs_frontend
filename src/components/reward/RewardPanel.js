@@ -16,7 +16,7 @@ const RewardPanel = () => {
       details: '카페 방문 시 아메리카노 1잔 무료 제공',
     },
   ]);
-  const [points, setPoints] = useState(15000);
+  const [points] = useState(15000); // 나중에 사용하기 위해 언더바 사용
 
   // 쿠폰을 사용했을 때 목록에서 제거하는 기능
   const handleUseCoupon = (couponId) => {

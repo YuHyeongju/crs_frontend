@@ -1,20 +1,20 @@
 import React, { useState, useContext } from 'react';
-import { FaUser, FaLock, FaEnvelope, FaPhone, FaBuilding, FaTimesCircle } from 'react-icons/fa';
+import { FaUser, FaLock, FaEnvelope, FaPhone, FaCode, FaTimesCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
-import WithdrawalModal from './WithdrawalModal';
-import { AuthContext } from '../context/AuthContext';
+import WithdrawalModal from '../../../components/ui/WithdrawalModal';
+import { AuthContext } from '../../../context/AuthContext';
 
-const MerchantMyInfoPanel = () => {
+const AdminMyInfoPanel = () => {
   const navigate = useNavigate();
   const { logout } = useContext(AuthContext);
 
   const [userInfo, setUserInfo] = useState({
-    id: 'test',
-    password: '1234',
-    email: 'merchant@example.com',
-    name: '김상인',
-    phoneNumber: '010-9876-5432',
-    businessNumber: '123-45-67890',
+    id: 'admin123',
+    password: 'admin_pass!',
+    email: 'admin@example.com',
+    name: '김관리',
+    phoneNumber: '010-5678-1234',
+    adminCode: 'ADMIN_CODE_001',
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -25,7 +25,7 @@ const MerchantMyInfoPanel = () => {
 
   const handleSaveClick = () => {
     alert('정보가 성공적으로 저장되었습니다!');
-    console.log('상인 정보 저장:', userInfo);
+    console.log('관리자 정보 저장:', userInfo);
   };
 
   const handleOpenModal = () => {
@@ -37,7 +37,7 @@ const MerchantMyInfoPanel = () => {
   };
 
   const handleConfirmWithdrawal = () => {
-    console.log('상인 회원 탈퇴를 처리하는 중...');
+    console.log('관리자 회원 탈퇴를 처리하는 중...');
     
     logout();
 
@@ -68,7 +68,7 @@ const MerchantMyInfoPanel = () => {
       <div style={styles.formGroup}><FaEnvelope style={styles.icon} /><label style={styles.label}>이메일</label><input type="email" name="email" value={userInfo.email} onChange={handleChange} style={styles.input} /></div>
       <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>이름</label><input type="text" name="name" value={userInfo.name} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
       <div style={styles.formGroup}><FaPhone style={styles.icon} /><label style={styles.label}>전화번호</label><input type="tel" name="phoneNumber" value={userInfo.phoneNumber} onChange={handleChange} style={styles.input} /></div>
-      <div style={styles.formGroup}><FaBuilding style={styles.icon} /><label style={styles.label}>사업자 등록번호</label><input type="text" name="businessNumber" value={userInfo.businessNumber} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
+      <div style={styles.formGroup}><FaCode style={styles.icon} /><label style={styles.label}>관리자 코드</label><input type="text" name="adminCode" value={userInfo.adminCode} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
       
       <div style={styles.buttonContainer}>
         <button style={{ ...styles.button, ...styles.saveButton }} onClick={handleSaveClick}>저장하기</button>
@@ -86,4 +86,4 @@ const MerchantMyInfoPanel = () => {
   );
 };
 
-export default MerchantMyInfoPanel;
+export default AdminMyInfoPanel;

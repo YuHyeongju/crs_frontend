@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from '../components/Header';
-import RestaurantListPanel from '../components/RestaurantListPanel';
-import MapControls from '../components/MapControls';
-import GoToMyLocationButton from '../components/GoToMyLocationButton';
-import LocationPanel from '../components/LocationPanel';
-import CongestionChangePanel from '../components/CongestionChangePanel';
-import { AuthContext } from '../context/AuthContext'; 
+import Header from '../../components/ui/Header';
+import RestaurantListPanel from './RestaurantListPanel';
+import MapControls from '../../components/map/MapControls';
+import GoToMyLocationButton from '../../components/map/GoToMyLocationButton';
+import LocationPanel from '../../components/map/LocationPanel';
+import CongestionChangePanel from '../../components/congestion/CongestionChangePanel';
+import { AuthContext } from '../../context/AuthContext'; 
 
 const RESTAURANT_PANEL_WIDTH_DESKTOP = '280px';
 const MOBILE_BREAKPOINT = 768;

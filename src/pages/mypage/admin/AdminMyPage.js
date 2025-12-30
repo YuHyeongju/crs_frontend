@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom';
 import { FaUserShield, FaStore, FaUserCog, FaExclamationCircle, FaChevronRight, FaMapMarkerAlt } from 'react-icons/fa';
 
 // 관리자용 서브 컴포넌트들을 import합니다.
-import AdminMyInfoPanel from '../components/AdminMyInfoPanel';
-import AdminStorePanel from '../components/AdminStorePanel';
-import AdminUserPanel from '../components/AdminUserPanel';
-import AdminReportPanel from '../components/AdminReportPanel';
+import AdminMyInfoPanel from '../admin/AdminMyInfoPanel';
+import AdminStorePanel from '../admin/AdminStorePanel';
+import AdminUserPanel from '../admin/AdminUserPanel';
+import AdminReportPanel from '../admin/AdminReportPanel';
 
 const AdminMyPage = () => {
   const [activePanel, setActivePanel] = useState('info');
