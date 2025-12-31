@@ -1,50 +1,104 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { FaUser, FaLock, FaEnvelope, FaPhone, FaCode, FaTimesCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import WithdrawalModal from '../../../components/ui/WithdrawalModal';
 import { AuthContext } from '../../../context/AuthContext';
+import axios from 'axios';
 
 const AdminMyInfoPanel = () => {
   const navigate = useNavigate();
   const { logout } = useContext(AuthContext);
 
   const [userInfo, setUserInfo] = useState({
-    id: 'admin123',
-    password: 'admin_pass!',
-    email: 'admin@example.com',
-    name: '김관리',
-    phoneNumber: '010-5678-1234',
-    adminCode: 'ADMIN_CODE_001',
+    id: '',
+    pw: '', 
+    email: '',
+    name: '',
+    phNum: '', 
+    adminNum: '',
   });
+
+  const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // 1. 정보 가져오기
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        const response = await axios.get('/api/users/mypage', { withCredentials: true });
+        
+        setUserInfo({
+          id: response.data.id,
+          pw: '', 
+          email: response.data.email,
+          name: response.data.name,
+          phNum: response.data.phNum,
+          adminNum: response.data.adminNum || '',
+        });
+      } catch (error) {
+        console.error("관리자 정보 로딩 실패:", error);
+        if (error.response?.status === 401) {
+          alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+          navigate("/login");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAdminData();
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setUserInfo(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSaveClick = () => {
-    alert('정보가 성공적으로 저장되었습니다!');
-    console.log('관리자 정보 저장:', userInfo);
+  // 2. 관리자 정보 수정 저장
+  const handleSaveClick = async () => {
+    try {
+      const updateData = {
+        pw: userInfo.pw,
+        email: userInfo.email,
+        phNum: userInfo.phNum,
+        adminNum: userInfo.adminNum 
+      };
+
+      
+      const response = await axios.post('/api/users/mypage/updateAdmin', updateData, { 
+        withCredentials: true 
+      });
+
+      if (response.status === 200) {
+        alert('관리자 정보가 성공적으로 수정되었습니다!');
+        setUserInfo(prev => ({ ...prev, pw: '' })); // 비밀번호 칸 비우기
+        navigate("/")
+      }
+    } catch (error) {
+      console.error("수정 실패:", error);
+      alert(error.response?.data || '정보 수정 중 오류가 발생했습니다.');
+    }
   };
 
-  const handleOpenModal = () => {
-    setIsModalOpen(true);
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+
+  const handleConfirmWithdrawal = async () => {
+    try {
+      await axios.post(`/api/users/withdraw?id=${userInfo.id}`, null, { withCredentials: true });
+      
+      logout();
+      alert('관리자 계정 탈퇴가 완료되었습니다.');
+      navigate('/');
+    } catch (error) {
+      const errMsg = error.response?.data;
+      alert(typeof errMsg === 'string' ? errMsg : "탈퇴 처리 중 오류가 발생했습니다.");
+    } finally {
+      handleCloseModal();
+    }
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-  };
-
-  const handleConfirmWithdrawal = () => {
-    console.log('관리자 회원 탈퇴를 처리하는 중...');
-    
-    logout();
-
-    alert('회원 탈퇴가 완료되었습니다.');
-    navigate('/');
-    handleCloseModal();
-  };
+  if (isLoading) return <div style={{padding: '30px'}}>관리자 데이터를 불러오는 중...</div>;
 
   const styles = {
     container: { padding: '30px', fontFamily: 'Arial, sans-serif' },
@@ -62,13 +116,31 @@ const AdminMyInfoPanel = () => {
 
   return (
     <div style={styles.container}>
-      <h2 style={styles.title}>내 정보</h2>
-      <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>아이디</label><input type="text" name="id" value={userInfo.id} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
-      <div style={styles.formGroup}><FaLock style={styles.icon} /><label style={styles.label}>비밀번호</label><input type="password" name="password" value={userInfo.password} onChange={handleChange} style={styles.input} /></div>
-      <div style={styles.formGroup}><FaEnvelope style={styles.icon} /><label style={styles.label}>이메일</label><input type="email" name="email" value={userInfo.email} onChange={handleChange} style={styles.input} /></div>
-      <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>이름</label><input type="text" name="name" value={userInfo.name} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
-      <div style={styles.formGroup}><FaPhone style={styles.icon} /><label style={styles.label}>전화번호</label><input type="tel" name="phoneNumber" value={userInfo.phoneNumber} onChange={handleChange} style={styles.input} /></div>
-      <div style={styles.formGroup}><FaCode style={styles.icon} /><label style={styles.label}>관리자 코드</label><input type="text" name="adminCode" value={userInfo.adminCode} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
+      <h2 style={styles.title}>내 정보 (관리자)</h2>
+      
+      <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>아이디</label>
+        <input type="text" name="id" value={userInfo.id} style={{ ...styles.input, ...styles.inputDisabled }} disabled />
+      </div>
+      
+      <div style={styles.formGroup}><FaLock style={styles.icon} /><label style={styles.label}>비밀번호</label>
+        <input type="password" name="pw" placeholder="변경 시 입력" value={userInfo.pw} onChange={handleChange} style={styles.input} />
+      </div>
+      
+      <div style={styles.formGroup}><FaEnvelope style={styles.icon} /><label style={styles.label}>이메일</label>
+        <input type="email" name="email" value={userInfo.email} onChange={handleChange} style={styles.input} />
+      </div>
+      
+      <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>이름</label>
+        <input type="text" name="name" value={userInfo.name} style={{ ...styles.input, ...styles.inputDisabled }} disabled />
+      </div>
+      
+      <div style={styles.formGroup}><FaPhone style={styles.icon} /><label style={styles.label}>전화번호</label>
+        <input type="tel" name="phNum" value={userInfo.phNum} onChange={handleChange} style={styles.input} />
+      </div>
+      
+      <div style={styles.formGroup}><FaCode style={styles.icon} /><label style={styles.label}>관리자 코드</label>
+        <input type="text" name="adminNum" value={userInfo.adminNum} onChange={handleChange} style={styles.input} />
+      </div>
       
       <div style={styles.buttonContainer}>
         <button style={{ ...styles.button, ...styles.saveButton }} onClick={handleSaveClick}>저장하기</button>

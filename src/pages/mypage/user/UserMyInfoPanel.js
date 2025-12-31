@@ -1,59 +1,114 @@
-import React, { useState, useContext} from 'react'; 
+import React, { useState, useContext, useEffect } from 'react'; 
 import { FaUser, FaLock, FaEnvelope, FaPhone, FaTimesCircle } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import WithdrawalModal from '../../../components/ui/WithdrawalModal';
 import { AuthContext } from '../../../context/AuthContext'; 
 import axios from 'axios';
 
-// 1. 컴포넌트 이름을 UserMyInfoPanel로 변경
 const UserMyInfoPanel = () => {
   const navigate = useNavigate();
   const { logout } = useContext(AuthContext); 
 
-  // 현재는 하드코딩 되어있지만, 나중에 백엔드에서 받아오도록 useEffect를 쓰시면 좋습니다.
+  
   const [userInfo, setUserInfo] = useState({
-    id: 'test',
-    password: '1234',
-    email: 'user@example.com',
-    name: '김민준',
-    phoneNumber: '010-1234-5678',
+    id: '',
+    pw: '',
+    email: '',
+    name: '',
+    phNum: '',
   });
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [isLoading, setIsLoading] = useState(true); 
+
+  // 2. 컴포넌트 로드 시 데이터 가져오기
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        
+        const response = await axios.get('/api/users/mypage', { withCredentials: true });
+        
+        
+        setUserInfo({
+          id: response.data.id,
+          pw: '', 
+          email: response.data.email,
+          name: response.data.name,
+          phNum: response.data.phNum,
+        });
+      } catch (error) {
+        console.error("데이터 로딩 실패:", error);
+        if (error.response?.status === 401) {
+          alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+          navigate("/login");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setUserInfo(prev => ({ ...prev, [name]: value }));
+    setUserInfo(prev => ({ ...prev, [name]: value }));// 비밀번호 창 비우기
   };
 
-  // 저장 로직도 axios를 사용하여 서버에 반영하도록 수정이 필요할 수 있습니다.
+  // 3. 정보 수정 저장 
   const handleSaveClick = async () => {
-    try {
-      // 예시: await axios.put('/api/user/update', userInfo);
-      alert('정보가 성공적으로 저장되었습니다!');
-      console.log('저장된 정보:', userInfo);
-    } catch (error) {
-      alert('정보 수정 중 오류가 발생했습니다.');
+   try {
+    
+    const updateData = {
+      pw:userInfo.pw, 
+      email: userInfo.email,
+      phNum: userInfo.phNum 
+    };
+
+    // 백엔드 컨트롤러 엔드포인트 호출
+    const response = await axios.post('/api/users/mypage/updateUser', updateData, { 
+      withCredentials: true 
+    });
+
+    if (response.status === 200) {
+      alert('정보가 성공적으로 수정되었습니다!');
+      // 비밀번호 칸은 보안상 다시 비워줍니다.
+      setUserInfo(prev => ({ ...prev, pw: '' }));
+      navigate("/")
     }
+  } catch (error) {
+    console.error("정보 수정 실패:", error);
+    const errorMessage = error.response?.data || "정보 수정 중 오류가 발생했습니다.";
+    alert(errorMessage);
+  }
   };
 
   const handleOpenModal = () => setIsModalOpen(true);
   const handleCloseModal = () => setIsModalOpen(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const handleConfirmWithdrawal = async () => {
-    try {
-      // 프록시 설정이 되어있으므로 경로 확인 필요 (/api 등)
-      await axios.post(`/withdraw?id=${userInfo.id}`);
-      logout();
-      alert("회원 탈퇴가 정상적으로 완료되었습니다.");
-      navigate("/");
-    } catch(error) {
-      console.error("회원 탈퇴 중에 오류가 발생했습니다.", error);
-      const errMsg = error.response?.data || "회원 탈퇴 처리중 문제가 발생했습니다.";
-      alert(errMsg);
-    }
-  };
+  try {
+    await axios.post(`/api/auth/withdraw?id=${userInfo.id}`, null, { withCredentials: true });
+    
+    logout();
+    alert("회원 탈퇴가 정상적으로 완료되었습니다.");
+    navigate("/");
+  } catch (error) {
+    console.error("회원 탈퇴 상세 에러:", error);
 
-  // 스타일 객체 (기존 유지)
+    // 에러 객체가 들어올 경우를 대비해 처리
+    const serverMessage = error.response?.data;
+    const finalMessage = typeof serverMessage === 'object' 
+      ? JSON.stringify(serverMessage) 
+      : serverMessage;
+
+    alert(finalMessage || "회원 탈퇴 중 문제가 발생했습니다.");
+  }
+};
+
+  if (isLoading) return <div>로딩 중...</div>; 
+
+  
   const styles = {
     container: { padding: '30px', fontFamily: 'Arial, sans-serif' },
     title: { fontSize: '24px', fontWeight: 'bold', marginBottom: '30px', color: '#333', borderBottom: '2px solid #007bff', paddingBottom: '10px' },
@@ -72,10 +127,10 @@ const UserMyInfoPanel = () => {
     <div style={styles.container}>
       <h2 style={styles.title}>내 정보</h2>
       <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>아이디</label><input type="text" name="id" value={userInfo.id} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
-      <div style={styles.formGroup}><FaLock style={styles.icon} /><label style={styles.label}>비밀번호</label><input type="password" name="password" value={userInfo.password} onChange={handleChange} style={styles.input} /></div>
+      <div style={styles.formGroup}><FaLock style={styles.icon} /><label style={styles.label}>비밀번호</label><input type="password" name="pw" placeholder="변경 시 입력" value={userInfo.password} onChange={handleChange} style={styles.input} /></div>
       <div style={styles.formGroup}><FaEnvelope style={styles.icon} /><label style={styles.label}>이메일</label><input type="email" name="email" value={userInfo.email} onChange={handleChange} style={styles.input} /></div>
       <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>이름</label><input type="text" name="name" value={userInfo.name} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
-      <div style={styles.formGroup}><FaPhone style={styles.icon} /><label style={styles.label}>전화번호</label><input type="tel" name="phoneNumber" value={userInfo.phoneNumber} onChange={handleChange} style={styles.input} /></div>
+      <div style={styles.formGroup}><FaPhone style={styles.icon} /><label style={styles.label}>전화번호</label><input type="tel" name="phNum" value={userInfo.phNum} onChange={handleChange} style={styles.input} /></div>
       
       <div style={styles.buttonContainer}>
         <button style={{ ...styles.button, ...styles.saveButton }} onClick={handleSaveClick}>저장하기</button>
@@ -93,5 +148,4 @@ const UserMyInfoPanel = () => {
   );
 };
 
-// 2. Export 이름을 선언한 컴포넌트 이름과 일치시킵니다.
 export default UserMyInfoPanel;

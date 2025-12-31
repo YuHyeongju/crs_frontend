@@ -15,7 +15,7 @@ const MyPage = () => {
   useEffect(() => {
     if (isLoggedIn) {
       // 백엔드에서 만든 MypageResponseDto 가져오기
-      axios.get('/api/user/mypage', { withCredentials: true })
+      axios.get('/api/users/mypage', { withCredentials: true })
         .then(response => {
           setMyPage(response.data); // DTO 데이터 저장
           setLoading(false);
