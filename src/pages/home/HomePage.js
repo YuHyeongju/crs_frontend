@@ -88,23 +88,63 @@ const HomePage = () => {
         if (targetElement) targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, []);
 
+   
     const createAndDisplayMarker = useCallback((place, map, index, onMarkerClick) => {
-        const position = new window.kakao.maps.LatLng(place.y, place.x);
-        const markerSvg = `<svg width="30" height="40" viewBox="0 0 30 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.71573 0 0 6.71573 0 15C0 25 15 40 15 40C15 40 30 25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#007bff"/><circle cx="15" cy="15" r="10" fill="white"/><text x="15" y="15" font-family="Arial" font-size="12" font-weight="bold" fill="#007bff" text-anchor="middle" alignment-baseline="middle">${index}</text></svg>`;
-        const markerImage = new window.kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(markerSvg)}`, new window.kakao.maps.Size(30, 40));
+    // 1. 마커의 위치 좌표 객체 생성
+    const position = new window.kakao.maps.LatLng(place.y, place.x);
+    
+    // 마커 아이콘(SVG) 설정
+    const markerSvg = `<svg width="30" height="40" viewBox="0 0 30 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.71573 0 0 6.71573 0 15C0 25 15 40 15 40C15 40 30 25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#007bff"/><circle cx="15" cy="15" r="10" fill="white"/><text x="15" y="15" font-family="Arial" font-size="12" font-weight="bold" fill="#007bff" text-anchor="middle" alignment-baseline="middle">${index}</text></svg>`;
+    const markerImage = new window.kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(markerSvg)}`, new window.kakao.maps.Size(30, 40));
 
-        const marker = new window.kakao.maps.Marker({ map, position, image: markerImage });
+    // 마커 생성
+    const marker = new window.kakao.maps.Marker({ map, position, image: markerImage });
 
-        window.kakao.maps.event.addListener(marker, 'click', () => {
-            const content = `<div style="padding:10px; font-size:12px;"><strong>${place.place_name}</strong></div>`;
-            if (infoWindowRef.current) infoWindowRef.current.close();
-            infoWindowRef.current = new window.kakao.maps.InfoWindow({ content, removable: true });
-            infoWindowRef.current.open(map, marker);
-            setUserMarkerVisible(false);
-            if (onMarkerClick) onMarkerClick(place.id);
+    window.kakao.maps.event.addListener(marker, 'click', () => {
+    const projection = map.getProjection();
+    const markerPixel = projection.pointFromCoords(position);
+    const mapHeight = mapContainerRef.current.offsetHeight;
+
+    // 1. 마커 위치를 기준으로 계산 (마커가 화면의 하단 3/4 지점에 오게 설정)
+    // 이렇게 하면 마커 위에 떠 있는 인포윈도우 본체가 화면 중앙(2/4) 부근에 걸립니다.
+    const targetY = markerPixel.y - (mapHeight / 2) + 150; // 150px은 인포윈도우의 대략적인 절반 높이
+    const targetCenter = projection.coordsFromPoint(new window.kakao.maps.Point(markerPixel.x, targetY));
+
+    // 2. 부드럽게 이동
+    map.panTo(targetCenter);
+
+    // 3. 인포윈도우 표시 (이동 후 약간의 지연을 주어 정확한 위치에 고정)
+    setTimeout(() => {
+        const content = `
+            <div style="padding:15px; font-size:13px; min-width:220px; width:auto; line-height: 1.5; background: white; border-radius: 8px;">
+                <strong style="font-size:15px; color:#007bff; display:block; margin-bottom:5px;">
+                    ${index}. ${place.place_name}
+                </strong>
+                <div style="border-top: 1px solid #eee; padding-top: 5px;">
+                    <span> 가게이름: ${place.place_name}</span><br/>
+                    <span> 주소: ${place.road_address_name || place.address_name}</span><br/>
+                    <span> 전화번호: ${place.phone || '정보 없음'}</span><br/>
+                    <span> 평점: ${place.rating}</span><br/>
+                    <span> 리뷰: ${place.reviewCount}개</span><br/>
+                    <span style="color: #e74c3c; font-weight: bold;"> 혼잡도: ${place.congestion}</span>
+                </div>
+            </div>
+        `;
+
+        if (infoWindowRef.current) infoWindowRef.current.close();
+        infoWindowRef.current = new window.kakao.maps.InfoWindow({ 
+            content: content, 
+            removable: true 
         });
-        return marker;
-    }, []);
+        infoWindowRef.current.open(map, marker);
+    }, 100); // 0.1초 지연
+
+    setUserMarkerVisible(false);
+    if (onMarkerClick) onMarkerClick(place.id);
+});
+
+    return marker;
+}, []);
 
     // 45개 검색 로직 복구 (Pagination 활용)
     const searchAndDisplayRestaurants = useCallback((centerLatLng, searchType = 'initial', keyword = '', setMapBounds = true) => {
@@ -135,7 +175,7 @@ const HomePage = () => {
                 });
 
                 setRestaurantList(newList);
-                if (setMapBounds && newList.length > 0) mapInstance.setBounds(bounds);
+                
             }
         };
 
@@ -226,7 +266,14 @@ const HomePage = () => {
                         restaurantList={restaurantList} isSearchMode={isSearchMode} onClearSearch={handleClearSearch}
                         showRestaurantPanel={showRestaurantPanel} setShowRestaurantPanel={setShowRestaurantPanel}
                         onRestaurantClick={(r) => navigate(`/restaurant-detail/${r.id}`, { state: { restaurantData: r } })}
-                        onCongestionChangeClick={(r) => { setSelectedRestaurant(r); setShowCongestionModal(true); }}
+                        isLoggedIn={isLoggedIn}
+                        onCongestionChangeClick={(r) => { 
+                            if(!isLoggedIn){
+                                alert('혼잡도 변경은 로그인 후 이용 가능합니다.');
+                                return;
+                            }
+                            setSelectedRestaurant(r); 
+                            setShowCongestionModal(true); }}
                         handleListItemClick={handleListItemClick}
                     />
                     <GoToMyLocationButton
