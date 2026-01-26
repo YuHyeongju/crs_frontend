@@ -1,31 +1,45 @@
-// src/context/AuthContext.js
+import React, { createContext, useState} from 'react';
 
-import React, { createContext, useState } from 'react';
-
-// 1. AuthContext 객체 생성
 export const AuthContext = createContext();
 
-// 2. AuthProvider 컴포넌트: 로그인 상태와 역할을 관리
 export const AuthProvider = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState(null);
+  // 1. 초기 상태 설정: 새로고침 시 SessionStorage에서 값을 읽어옵니다.
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return sessionStorage.getItem('isLoggedIn') === 'true';
+  });
+  
+  const [userRole, setUserRole] = useState(() => {
+    return sessionStorage.getItem('userRole'); // 문자열이므로 바로 리턴
+  });
 
-  // 로그인 함수: role 정보를 받아서 상태를 업데이트
-  const login = (role) => {
+  const [userIdx, setUserIdx] = useState(() =>{
+    return sessionStorage.getItem('userIdx');
+  })
+
+  // 2. 로그인 함수: 상태 업데이트 + SessionStorage에 기록 보존
+  const login = (role,idx) => {
     setIsLoggedIn(true);
     setUserRole(role);
-    // 실제 프로젝트에서는 localStorage에 토큰 등을 저장하는 로직이 추가됩니다.
+    setUserIdx(userIdx);
+    sessionStorage.setItem('userIdx',idx);
+    sessionStorage.setItem('isLoggedIn', 'true');
+    sessionStorage.setItem('userRole', role);
   };
 
-  // 로그아웃 함수: 모든 상태를 초기화
+  // 3. 로그아웃 함수: 상태 초기화 + SessionStorage 데이터 삭제
   const logout = () => {
     setIsLoggedIn(false);
     setUserRole(null);
+    setUserIdx(null);
+    sessionStorage.removeItem('isLoggedIn');
+    sessionStorage.removeItem('userRole');
+    sessionStorage.removeItem('userIdx');
   };
 
   const value = {
     isLoggedIn,
     userRole,
+    userIdx,
     login,
     logout,
   };

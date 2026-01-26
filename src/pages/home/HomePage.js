@@ -7,6 +7,7 @@ import GoToMyLocationButton from '../../components/map/GoToMyLocationButton';
 import LocationPanel from '../../components/map/LocationPanel';
 import CongestionChangePanel from '../../components/congestion/CongestionChangePanel';
 import { AuthContext } from '../../context/AuthContext';
+import axios from 'axios';
 
 const RESTAURANT_PANEL_WIDTH_DESKTOP = '280px';
 const MOBILE_BREAKPOINT = 768;
@@ -14,9 +15,7 @@ const MOBILE_BREAKPOINT = 768;
 const generateDynamicDetails = () => {
     const ratings = (Math.random() * (5.0 - 3.0) + 3.0).toFixed(1);
     const reviewCounts = Math.floor(Math.random() * 200) + 10;
-    const congestions = ['매우 혼잡', '혼잡', '보통', '여유'];
-    const congestion = congestions[Math.random() < 0.2 ? 0 : Math.floor(Math.random() * congestions.length)];
-    return { rating: ratings, reviewCount: reviewCounts, congestion: congestion };
+    return { rating: ratings, reviewCount: reviewCounts};
 };
 
 const HomePage = () => {
@@ -57,6 +56,38 @@ const HomePage = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // 1. 백엔드에서 실제 혼잡도 데이터를 가져와 리스트에 적용하는 함수 (추가됨)
+    const fetchAndApplyCongestion = useCallback(async (currentList) => {
+        try {
+            const ids = currentList.map(item => item.id);
+            if (ids.length === 0) return;
+
+            // 백엔드 API 호출 (실제 컨트롤러 경로: /api/congestion/bulk-status)
+            const response = await axios.post('/api/congestion/bulkStatus', ids );
+            const realData = response.data; // 형식: { "카카오ID": "여유", ... }
+
+            setRestaurantList(prev => prev.map(item => ({
+                ...item,
+                // DB 데이터가 있으면 적용, 없으면 '정보 없음' 유지
+                congestion: realData[item.id] || '정보 없음'
+            })));
+        } catch (error) {
+            console.error("DB 혼잡도 로드 실패:", error);
+        }
+    }, []);
+
+    // 혼잡도 변경 후 리스트 상태를 즉시 업데이트하는 함수
+    const handleCongestionChange = useCallback((id,newStatusName) => {
+        setRestaurantList(prev => 
+            prev.map(item => 
+                item.id === id
+                ? { ...item, congestion: newStatusName } 
+                : item
+            )
+        );
+        setShowCongestionModal(false);
+    }, []);
+
     const removeRestaurantMarkers = useCallback(() => {
         restaurantMarkersRef.current.forEach(m => m.setMap(null));
         restaurantMarkersRef.current = [];
@@ -88,7 +119,6 @@ const HomePage = () => {
         if (targetElement) targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, []);
 
-   
     const createAndDisplayMarker = useCallback((place, map, index, onMarkerClick) => {
     // 1. 마커의 위치 좌표 객체 생성
     const position = new window.kakao.maps.LatLng(place.y, place.x);
@@ -167,7 +197,7 @@ const HomePage = () => {
 
                 const bounds = new window.kakao.maps.LatLngBounds();
                 const newList = allResults.map((place, i) => {
-                    const merged = { ...place, ...generateDynamicDetails() };
+                    const merged = { ...place, ...generateDynamicDetails(), congestion: '정보 없음' };
                     const marker = createAndDisplayMarker(merged, mapInstance, i + 1, handleListItemClick);
                     restaurantMarkersRef.current.push(marker);
                     bounds.extend(new window.kakao.maps.LatLng(place.y, place.x));
@@ -175,6 +205,8 @@ const HomePage = () => {
                 });
 
                 setRestaurantList(newList);
+
+                fetchAndApplyCongestion(newList);
                 
             }
         };
@@ -182,7 +214,7 @@ const HomePage = () => {
         const options = { location: centerLatLng, radius: 2000 };
         if (searchType === 'keyword') ps.keywordSearch(keyword, callback, options);
         else ps.categorySearch('FD6', callback, options);
-    }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker, handleListItemClick]);
+    }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker, handleListItemClick,fetchAndApplyCongestion]);
 
     useEffect(() => { searchAndDisplayRestaurantsRef.current = searchAndDisplayRestaurants; }, [searchAndDisplayRestaurants]);
 
@@ -247,6 +279,15 @@ const HomePage = () => {
                 onClear={handleClearSearch} isSearchMode={isSearchMode} isLoggedIn={isLoggedIn} handleLogout={handleLogout} isMobile={isMobile}
             />
 
+            {showCongestionModal && (
+    <CongestionChangePanel
+        restaurant={selectedRestaurant}
+        onClose={() => setShowCongestionModal(false)}
+        // 익명 함수 대신 정의한 handleCongestionChange를 연결
+        onCongestionChange={handleCongestionChange} 
+    />
+)}
+
             <div ref={mapContainerRef} style={{
                 width: '100%', height: '100%', position: 'absolute',
                 transform: isMobile && showRestaurantPanel ? `translateX(${RESTAURANT_PANEL_WIDTH_DESKTOP})` : 'translateX(0)',
@@ -267,13 +308,24 @@ const HomePage = () => {
                         showRestaurantPanel={showRestaurantPanel} setShowRestaurantPanel={setShowRestaurantPanel}
                         onRestaurantClick={(r) => navigate(`/restaurant-detail/${r.id}`, { state: { restaurantData: r } })}
                         isLoggedIn={isLoggedIn}
-                        onCongestionChangeClick={(r) => { 
+                        onCongestionChangeClick={async (r) => { 
                             if(!isLoggedIn){
                                 alert('혼잡도 변경은 로그인 후 이용 가능합니다.');
                                 return;
                             }
-                            setSelectedRestaurant(r); 
-                            setShowCongestionModal(true); }}
+                            try{
+                                const response = await axios.get(`api/congestion/${r.id}`);
+                                
+                                const restaurantWithLatest = { ...r, congestion: response.data };
+
+                                setSelectedRestaurant(restaurantWithLatest); 
+                                setShowCongestionModal(true); 
+                            }catch(error){
+                                console.error("최근 혼잡도 조회 실패 ",error);
+                                setSelectedRestaurant(r);
+                                setShowCongestionModal(true);
+                            }
+                        }}
                         handleListItemClick={handleListItemClick}
                     />
                     <GoToMyLocationButton
@@ -288,17 +340,6 @@ const HomePage = () => {
                     <button onClick={() => setShowLocationPanel(!showLocationPanel)} style={{ position: 'fixed', top: '120px', right: '10px', zIndex: 10, padding: '10px', background: showLocationPanel ? '#007bff' : 'white', borderRadius: '5px', border: '1px solid #ccc', cursor: 'pointer' }}>내 위치 정보</button>
                     <LocationPanel currentUserCoords={currentUserCoords} showLocationPanel={showLocationPanel} setShowLocationPanel={setShowLocationPanel} handleLocationUpdate={setCurrentUserCoords} />
                 </>
-            )}
-
-            {showCongestionModal && (
-                <CongestionChangePanel
-                    restaurant={selectedRestaurant}
-                    onClose={() => setShowCongestionModal(false)}
-                    onCongestionChange={(val) => {
-                        setRestaurantList(prev => prev.map(item => item.id === selectedRestaurant.id ? { ...item, congestion: val } : item));
-                        setShowCongestionModal(false);
-                    }}
-                />
             )}
         </div>
     );
