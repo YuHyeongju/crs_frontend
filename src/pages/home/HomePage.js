@@ -20,7 +20,7 @@ const generateDynamicDetails = () => {
 
 const HomePage = () => {
     const navigate = useNavigate();
-    const { isLoggedIn, logout } = useContext(AuthContext);
+    const { isLoggedIn, logout, user,userIdx } = useContext(AuthContext);
 
     const [mapInstance, setMapInstance] = useState(null);
     const [currentUserCoords, setCurrentUserCoords] = useState(null);
@@ -34,6 +34,7 @@ const HomePage = () => {
     const [showCongestionModal, setShowCongestionModal] = useState(false);
     const [selectedRestaurant, setSelectedRestaurant] = useState(null);
     const [userMarkerVisible, setUserMarkerVisible] = useState(true);
+    const [myBookmarkIds, setMyBookmarkIds] = useState([]);
 
     const mapContainerRef = useRef(null);
     const clickedMarkerRef = useRef(null);
@@ -49,6 +50,60 @@ const HomePage = () => {
         alert('로그아웃 되었습니다.');
         navigate('/');
     }, [navigate, logout]);
+
+
+    const handleBookmarkToggle = useCallback(async (restaurant) => {
+
+        console.log("현재 로그인 상태:", isLoggedIn);
+        console.log("전체 유저 정보(user):", user);
+        console.log("꺼내려는 userIdx:", user?.userIdx);
+
+        if (!isLoggedIn) {
+            alert("로그인 후 이용 가능합니다.");
+            navigate('/login');
+            return;
+        }
+
+        try {
+
+            await axios.post('/api/bookmarks/toggle', {
+                userIdx: userIdx,
+                kakaoId: restaurant.id,
+                restName: restaurant.place_name,
+                restAddress: restaurant.road_address_name || restaurant.address_name,
+                restTel: restaurant.phone
+            });
+
+
+            setMyBookmarkIds((prev) => {
+            const isExist = prev.includes(restaurant.id);
+            return isExist
+                ? prev.filter(id => String(id) !== restaurant.id)
+                : [...prev, restaurant.id];
+        });
+
+        } catch (error) {
+            console.error("즐겨찾기 처리 중 오류 발생:", error);
+            alert("처리에 실패했습니다. 다시 시도해주세요.");
+        }
+    }, [isLoggedIn,userIdx,user,navigate]);
+
+    useEffect(() => {
+        const fetchBookmarkIds = async () => {
+            if (isLoggedIn && userIdx) {
+                try {
+                    const response = await axios.get(`/api/bookmarks/my-bookmark-list/${userIdx}`);
+                    const stringIds = response.data.map(id => String(id));
+                    setMyBookmarkIds(stringIds);
+                } catch (error) {
+                    console.error("북마크 ID 로드 실패:", error);
+                }
+            } else {
+                setMyBookmarkIds([]);
+            }
+        };
+        fetchBookmarkIds();
+    }, [isLoggedIn,userIdx]);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
@@ -156,11 +211,10 @@ const HomePage = () => {
                     <span> 전화번호: ${place.phone || '정보 없음'}</span><br/>
                     <span> 평점: ${place.rating}</span><br/>
                     <span> 리뷰: ${place.reviewCount}개</span><br/>
-                    <span style="color: ${  
-                        place.congestion === '매우 혼잡' ? '#dc3545' :
+                    <span style="color: ${place.congestion === '매우 혼잡' ? '#dc3545' :
                         place.congestion === '혼잡' ? '#ffc107' :
-                        place.congestion === '보통' ? '#17a2b8' :
-                        place.congestion === '여유' ? '#28a745' : '#666'
+                            place.congestion === '보통' ? '#17a2b8' :
+                                place.congestion === '여유' ? '#28a745' : '#666'
                     }; font-weight: bold;"> 혼잡도: ${place.congestion}</span>
                 </div>
             </div>
@@ -230,8 +284,6 @@ const HomePage = () => {
         if (clickedMarkerRef.current) { clickedMarkerRef.current.setMap(null); clickedMarkerRef.current = null; }
         searchAndDisplayRestaurantsRef.current(mapInstance.getCenter(), 'initial', '', false);
     }, [mapInstance]);
-
-    // --- 기존 handleClearSearch 아래에 추가 ---
 
     // [핵심] 리스트(혼잡도 포함)가 바뀔 때마다 지도의 마커를 최신화하는 로직
     useEffect(() => {
@@ -336,9 +388,24 @@ const HomePage = () => {
                         handleZoomOut={() => mapInstance.setLevel(mapInstance.getLevel() + 1)}
                     />
                     <RestaurantListPanel
-                        restaurantList={restaurantList} isSearchMode={isSearchMode} onClearSearch={handleClearSearch}
-                        showRestaurantPanel={showRestaurantPanel} setShowRestaurantPanel={setShowRestaurantPanel}
-                        onRestaurantClick={(r) => navigate(`/restaurant-detail/${r.id}`, { state: { restaurantData: r } })}
+                        restaurantList={restaurantList}
+                        isSearchMode={isSearchMode}
+                        onClearSearch={handleClearSearch}
+                        showRestaurantPanel={showRestaurantPanel}
+                        setShowRestaurantPanel={setShowRestaurantPanel}
+
+                        // 1. 여기에 즐겨찾기 관련 Props 추가
+                        myBookmarkIds={myBookmarkIds}
+                        onBookmarkToggle={handleBookmarkToggle}
+
+                        // 2. 상세보기로 갈 때 찜 여부 상태도 같이 들고 가기 (선택사항이지만 추천!)
+                        onRestaurantClick={(r) => navigate(`/restaurant-detail/${r.id}`, {
+                            state: {
+                                restaurantData: r,
+                                isBookmarked: myBookmarkIds.includes(Number(r.id))
+                            }
+                        })}
+
                         isLoggedIn={isLoggedIn}
                         onCongestionChangeClick={async (r) => {
                             if (!isLoggedIn) {
@@ -347,9 +414,7 @@ const HomePage = () => {
                             }
                             try {
                                 const response = await axios.get(`api/congestion/${r.id}`);
-
                                 const restaurantWithLatest = { ...r, congestion: response.data };
-
                                 setSelectedRestaurant(restaurantWithLatest);
                                 setShowCongestionModal(true);
                             } catch (error) {

@@ -8,8 +8,8 @@ const PW_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&
 
 function MerchantSignUpPage() {
     const navigate = useNavigate();
-    const [formData, setFormData] = useState({ 
-        id: '', pw: '', confirmPw: '', name: '', email: '', phone: '', gender: '', businessNum: '' 
+    const [formData, setFormData] = useState({
+        id: '', pw: '', confirmPw: '', name: '', email: '', phone: '', gender: '', businessNum: ''
     });
     const [passwordMatch, setPasswordMatch] = useState(true);
     const [pwError, setPwError] = useState('');
@@ -17,8 +17,8 @@ function MerchantSignUpPage() {
     const [bizError, setBizError] = useState('');
     const [formError, setFormError] = useState('');
 
-    useEffect(() => { 
-        setPasswordMatch(formData.pw === '' || formData.confirmPw === '' ? true : formData.pw === formData.confirmPw); 
+    useEffect(() => {
+        setPasswordMatch(formData.pw === '' || formData.confirmPw === '' ? true : formData.pw === formData.confirmPw);
     }, [formData.pw, formData.confirmPw]);
 
     const handleChange = (e) => {
@@ -26,36 +26,43 @@ function MerchantSignUpPage() {
         setFormError('');
 
         if (name === 'businessNum') {
-            const num = value.replace(/[^0-9]/g, '').slice(0, 10);
-            setFormData({ ...formData, [name]: num });
+            const num = value.replace(/[^0-9]/g, '');
+            let formatNum = num.length <= 3 ? num : num.length <= 5 ? `${num.slice(0, 3)}-${num.slice(3)}` : `${num.slice(0, 3)}-${num.slice(3, 5)}-${num.slice(5, 10)}`;
+            setFormData({ ...formData, [name]: formatNum });
             setBizError(num.length > 0 && num.length < 10 ? '사업자 번호 10자리를 입력해주세요.' : '');
+
         } else if (name === 'pw') {
-            setPwError(value !== '' && !PW_REGEX.test(value) ? '8자 이상, 대소문자, 숫자, 특수문자 포함 필수' : '');
+           
+            const isValid = PW_REGEX.test(value); 
+            setPwError(value !== '' && !isValid ? '8자 이상, 대소문자, 숫자, 특수문자 포함 필수' : '');
             setFormData({ ...formData, [name]: value });
+
         } else if (name === 'phone') {
             const num = value.replace(/[^0-9]/g, '');
             let res = num.length <= 3 ? num : num.length <= 7 ? `${num.slice(0, 3)}-${num.slice(3)}` : `${num.slice(0, 3)}-${num.slice(3, 7)}-${num.slice(7, 11)}`;
             setFormData({ ...formData, [name]: res });
+            
             setPhoneError(res !== '' && res.length < 13 ? '전화번호 형식이 올바르지 않습니다.' : '');
-        } else { 
-            setFormData({ ...formData, [name]: value }); 
+
+        } else {
+            setFormData({ ...formData, [name]: value });
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (pwError || bizError || phoneError || !passwordMatch || !formData.gender) { 
-            setFormError('입력 내용을 다시 확인해주세요.'); 
-            return; 
+        if (pwError || bizError || phoneError || !passwordMatch || !formData.gender) {
+            setFormError('입력 내용을 다시 확인해주세요.');
+            return;
         }
         try {
             const res = await axios.post("/api/auth/register/merchant", formData);
-            if (res.status === 201 || res.status === 200) { 
-                alert('상인 회원가입이 완료되었습니다!'); 
-                navigate("/login"); 
+            if (res.status === 201 || res.status === 200) {
+                alert('상인 회원가입이 완료되었습니다!');
+                navigate("/login");
             }
-        } catch (err) { 
-            setFormError(err.response?.data || '서버 오류가 발생했습니다.'); 
+        } catch (err) {
+            setFormError(err.response?.data || '서버 오류가 발생했습니다.');
         }
     };
 

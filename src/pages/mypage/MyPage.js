@@ -8,14 +8,14 @@ import AdminMyPage from '../mypage/admin/AdminMyPage';
 import NotLoggedInPage from './NotLoggedInPage';
 
 const MyPage = () => {
-  const { isLoggedIn } = useContext(AuthContext);
+  const { isLoggedIn} = useContext(AuthContext);
   const [mypage, setMyPage] = useState(null); // 서버에서 받을 DTO 데이터 저장
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isLoggedIn) {
       // 백엔드에서 만든 MypageResponseDto 가져오기
-      axios.get('/api/users/mypage', { withCredentials: true })
+      axios.get(`/api/users/mypage`,{ withCredentials: true })
         .then(response => {
           setMyPage(response.data); // DTO 데이터 저장
           setLoading(false);
