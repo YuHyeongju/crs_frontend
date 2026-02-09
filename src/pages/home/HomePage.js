@@ -20,7 +20,7 @@ const generateDynamicDetails = () => {
 
 const HomePage = () => {
     const navigate = useNavigate();
-    const { isLoggedIn, logout, user,userIdx } = useContext(AuthContext);
+    const { isLoggedIn, logout, user, userIdx } = useContext(AuthContext);
 
     const [mapInstance, setMapInstance] = useState(null);
     const [currentUserCoords, setCurrentUserCoords] = useState(null);
@@ -76,17 +76,17 @@ const HomePage = () => {
 
 
             setMyBookmarkIds((prev) => {
-            const isExist = prev.includes(restaurant.id);
-            return isExist
-                ? prev.filter(id => String(id) !== restaurant.id)
-                : [...prev, restaurant.id];
-        });
+                const isExist = prev.includes(restaurant.id);
+                return isExist
+                    ? prev.filter(id => String(id) !== restaurant.id)
+                    : [...prev, restaurant.id];
+            });
 
         } catch (error) {
             console.error("즐겨찾기 처리 중 오류 발생:", error);
             alert("처리에 실패했습니다. 다시 시도해주세요.");
         }
-    }, [isLoggedIn,userIdx,user,navigate]);
+    }, [isLoggedIn, userIdx, user, navigate]);
 
     useEffect(() => {
         const fetchBookmarkIds = async () => {
@@ -103,7 +103,7 @@ const HomePage = () => {
             }
         };
         fetchBookmarkIds();
-    }, [isLoggedIn,userIdx]);
+    }, [isLoggedIn, userIdx]);
 
     useEffect(() => {
         const handleResize = () => setIsMobile(window.innerWidth <= MOBILE_BREAKPOINT);
@@ -124,7 +124,7 @@ const HomePage = () => {
             setRestaurantList(prev => prev.map(item => ({
                 ...item,
                 // DB 데이터가 있으면 적용, 없으면 '정보 없음' 유지
-                congestion: realData[item.id] || '정보 없음'
+                congestion: realData[item.id] || '혼잡도 이력 없음'
             })));
         } catch (error) {
             console.error("DB 혼잡도 로드 실패:", error);
@@ -200,8 +200,14 @@ const HomePage = () => {
 
             // 3. 인포윈도우 표시 (이동 후 약간의 지연을 주어 정확한 위치에 고정)
             setTimeout(() => {
+                // 1. 서버에서 온 값이 문자열 "null"이거나 진짜 null/undefined일 경우를 필터링
+                const displayCongestion = (place.congestion && place.congestion !== 'null')
+                    ? place.congestion
+                    : '혼잡도 이력 없음';
+
+                // 2. 가공된 displayCongestion 변수를 사용하여 HTML 생성
                 const content = `
-            <div style="padding:15px; font-size:13px; min-width:220px; width:auto; line-height: 1.5; background: white; border-radius: 8px;">
+            <div style="padding:15px; font-size:13px; min-width:220px; width:auto; line-height: 1.5; background: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
                 <strong style="font-size:15px; color:#007bff; display:block; margin-bottom:5px;">
                     ${index}. ${place.place_name}
                 </strong>
@@ -211,11 +217,11 @@ const HomePage = () => {
                     <span> 전화번호: ${place.phone || '정보 없음'}</span><br/>
                     <span> 평점: ${place.rating}</span><br/>
                     <span> 리뷰: ${place.reviewCount}개</span><br/>
-                    <span style="color: ${place.congestion === '매우 혼잡' ? '#dc3545' :
-                        place.congestion === '혼잡' ? '#ffc107' :
-                            place.congestion === '보통' ? '#17a2b8' :
-                                place.congestion === '여유' ? '#28a745' : '#666'
-                    }; font-weight: bold;"> 혼잡도: ${place.congestion}</span>
+                    <span style="color: ${displayCongestion === '매우 혼잡' ? '#dc3545' :
+                        displayCongestion === '혼잡' ? '#ffc107' :
+                            displayCongestion === '보통' ? '#17a2b8' :
+                                displayCongestion === '여유' ? '#28a745' : '#666'
+                    }; font-weight: bold;"> 혼잡도: ${displayCongestion}</span>
                 </div>
             </div>
         `;
@@ -226,7 +232,7 @@ const HomePage = () => {
                     removable: true
                 });
                 infoWindowRef.current.open(map, marker);
-            }, 100); // 0.1초 지연
+            }, 100);
 
             setUserMarkerVisible(false);
             if (onMarkerClick) onMarkerClick(place.id);
@@ -256,7 +262,7 @@ const HomePage = () => {
 
                 const bounds = new window.kakao.maps.LatLngBounds();
                 const newList = allResults.map((place, i) => {
-                    const merged = { ...place, ...generateDynamicDetails(), congestion: '정보 없음' };
+                    const merged = { ...place, ...generateDynamicDetails(), congestion: '혼잡도 이력 없음' };
                     const marker = createAndDisplayMarker(merged, mapInstance, i + 1, handleListItemClick);
                     restaurantMarkersRef.current.push(marker);
                     bounds.extend(new window.kakao.maps.LatLng(place.y, place.x));
