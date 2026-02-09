@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FaChevronRight, FaUser, FaGift, FaHeart, FaCommentDots, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaChevronRight, FaUser, FaGift, FaHeart, FaCommentDots, FaMapMarkerAlt, FaHistory } from 'react-icons/fa';
+
+
 import UserMyInfoPanel from './UserMyInfoPanel';
 import RewardPanel from '../../../components/reward/RewardPanel';
 import BookmarksPanel from './BookmarksPanel';
 import MyReviewsPanel from './MyReviewsPanel';
+import MyCongestionsPanel from './MyCongestionsPanel.js'; 
 
 const UserMyPage = () => {
   const [activePanel, setActivePanel] = useState('info');
@@ -96,45 +99,44 @@ const UserMyPage = () => {
 
       <div style={styles.contentContainer}>
         <div style={styles.menuContainer}>
-          <div
-            style={styles.menuItem(activePanel === 'info')}
-            onClick={() => handleMenuClick('info')}
-          >
+          <div style={styles.menuItem(activePanel === 'info')} onClick={() => handleMenuClick('info')}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <FaUser style={styles.menuIcon(activePanel === 'info')} />
               <span>내 정보</span>
             </div>
             <FaChevronRight style={{ color: activePanel === 'info' ? '#007bff' : '#ccc' }} />
           </div>
-          <div
-            style={styles.menuItem(activePanel === 'rewards')}
-            onClick={() => handleMenuClick('rewards')}
-          >
+
+          <div style={styles.menuItem(activePanel === 'rewards')} onClick={() => handleMenuClick('rewards')}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <FaGift style={styles.menuIcon(activePanel === 'rewards')} />
               <span>리워드</span>
             </div>
             <FaChevronRight style={{ color: activePanel === 'rewards' ? '#007bff' : '#ccc' }} />
           </div>
-          <div
-            style={styles.menuItem(activePanel === 'bookmarks')}
-            onClick={() => handleMenuClick('bookmarks')}
-          >
+
+          <div style={styles.menuItem(activePanel === 'bookmarks')} onClick={() => handleMenuClick('bookmarks')}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <FaHeart style={{...styles.menuIcon(activePanel === 'bookmarks'), color: activePanel === 'bookmarks' ? '#dc3545' : '#dc3545'}} />
+              <FaHeart style={{...styles.menuIcon(activePanel === 'bookmarks'), color: '#dc3545'}} />
               <span>즐겨찾기한 식당</span>
             </div>
             <FaChevronRight style={{ color: activePanel === 'bookmarks' ? '#007bff' : '#ccc' }} />
           </div>
-          <div
-            style={styles.menuItem(activePanel === 'reviews')}
-            onClick={() => handleMenuClick('reviews')}
-          >
+
+          <div style={styles.menuItem(activePanel === 'reviews')} onClick={() => handleMenuClick('reviews')}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <FaCommentDots style={styles.menuIcon(activePanel === 'reviews')} />
               <span>나의 리뷰</span>
             </div>
             <FaChevronRight style={{ color: activePanel === 'reviews' ? '#007bff' : '#ccc' }} />
+          </div>
+
+          <div style={styles.menuItem(activePanel === 'congestions')} onClick={() => handleMenuClick('congestions')}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <FaHistory style={styles.menuIcon(activePanel === 'congestions')} />
+              <span>나의 변경 이력</span>
+            </div>
+            <FaChevronRight style={{ color: activePanel === 'congestions' ? '#007bff' : '#ccc' }} />
           </div>
         </div>
 
@@ -143,6 +145,7 @@ const UserMyPage = () => {
           {activePanel === 'rewards' && <RewardPanel />}
           {activePanel === 'bookmarks' && <BookmarksPanel />}
           {activePanel === 'reviews' && <MyReviewsPanel />}
+          {activePanel === 'congestions' && <MyCongestionsPanel />}
         </div>
       </div>
     </div>

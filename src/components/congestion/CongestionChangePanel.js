@@ -41,7 +41,7 @@ const CongestionChangePanel = ({ onClose, onCongestionChange, restaurant }) => {
                 userIdx: userIdx,
                 kakaoId: restaurant.id,
                 congStatus: CONGESTION_MAP[newCongestion],
-                restName : restaurant.road_address_name,
+                restName : restaurant.place_name,
                 restAddress : restaurant.road_address_name || restaurant.address_name,
                 restPhone: restaurant.phone || ''
 
