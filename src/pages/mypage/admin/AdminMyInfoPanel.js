@@ -65,7 +65,7 @@ const AdminMyInfoPanel = () => {
       };
 
       
-      const response = await axios.post('/api/users/mypage/updateAdmin', updateData, { 
+      const response = await axios.post('/api/admins/mypage/updateAdmin', updateData, { 
         withCredentials: true 
       });
 

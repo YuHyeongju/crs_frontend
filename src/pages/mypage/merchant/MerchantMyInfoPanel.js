@@ -65,7 +65,7 @@ const MerchantMyInfoPanel = () => {
       };
 
      
-      const response = await axios.post('/api/users/mypage/updateMerchant', updateData, { 
+      const response = await axios.post('/api/merchants/mypage/updateMerchant', updateData, { 
         withCredentials: true 
       });
 
