@@ -128,7 +128,7 @@ const RestaurantListPanel = ({
                                             onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#e6f7ff'}
                                             onMouseOut={(e) => e.currentTarget.style.backgroundColor = (index % 2 === 0) ? '#fff' : '#fefefe'}
                                         >
-                                            {/* 🌟 우측 상단 별표 버튼 */}
+                                            {/* 우측 상단 별표 버튼 */}
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation(); // 카드 클릭(이동) 방지

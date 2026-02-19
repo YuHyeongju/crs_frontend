@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FaChevronRight, FaUser, FaStore, FaChartLine, FaGift, FaPlus, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaChevronRight, FaUser, FaStore, FaHistory, FaGift, FaPlus, FaMapMarkerAlt } from 'react-icons/fa';
 import MerchantMyInfoPanel from '../merchant/MerchantMyInfoPanel';
 import MerchantRegisterPanel from '../merchant/MerchantRegisterPanel';
 import MerchantEditDeletePanel from '../merchant/MerchantEditDeletePanel';
@@ -135,7 +135,7 @@ const MerchantMyPage = () => {
             <FaChevronRight style={{ color: activePanel === 'info' ? '#007bff' : '#ccc' }} />
           </div>
           <div style={styles.menuItem(activePanel === 'congestion')} onClick={() => handleMenuClick('congestion')}>
-            <div style={{ display: 'flex', alignItems: 'center' }}><FaChartLine style={styles.menuIcon(activePanel === 'congestion')} /><span>혼잡도 입력 내역</span></div>
+            <div style={{ display: 'flex', alignItems: 'center' }}><FaHistory style={styles.menuIcon(activePanel === 'congestion')} /><span>혼잡도 변경 이력</span></div>
             <FaChevronRight style={{ color: activePanel === 'congestion' ? '#007bff' : '#ccc' }} />
           </div>
           <div style={styles.menuItem(activePanel === 'reward')} onClick={() => handleMenuClick('reward')}>

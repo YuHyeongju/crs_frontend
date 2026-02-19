@@ -25,7 +25,7 @@ const AdminMyInfoPanel = () => {
   useEffect(() => {
     const fetchAdminData = async () => {
       try {
-        const response = await axios.get('/api/users/mypage', { withCredentials: true });
+        const response = await axios.get('/api/admins/mypage', { withCredentials: true });
         
         setUserInfo({
           id: response.data.id,

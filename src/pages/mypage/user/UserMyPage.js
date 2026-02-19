@@ -134,7 +134,7 @@ const UserMyPage = () => {
           <div style={styles.menuItem(activePanel === 'congestions')} onClick={() => handleMenuClick('congestions')}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <FaHistory style={styles.menuIcon(activePanel === 'congestions')} />
-              <span>나의 변경 이력</span>
+              <span>혼잡도 변경 이력</span>
             </div>
             <FaChevronRight style={{ color: activePanel === 'congestions' ? '#007bff' : '#ccc' }} />
           </div>

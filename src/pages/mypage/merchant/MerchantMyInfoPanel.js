@@ -25,7 +25,7 @@ const MerchantMyInfoPanel = () => {
   useEffect(() => {
     const fetchMerchantData = async () => {
       try {
-        const response = await axios.get('/api/users/mypage', { withCredentials: true });
+        const response = await axios.get('/api/merchants/mypage', { withCredentials: true });
         
         setUserInfo({
           id: response.data.id,
