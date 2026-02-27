@@ -48,7 +48,6 @@ function LoginPage() {
       }
     } catch (error) {
       console.error("로그인 시도 에러:", error);
-      console.log("내가 보낸 데이터: ",error.config.data);
       // 서버에서 보낸 에러 메시지가 있다면 출력, 없으면 기본 메시지
       const errorMessage = error.response?.data || "아이디 또는 비밀번호가 일치하지 않습니다.";
       alert(errorMessage);
