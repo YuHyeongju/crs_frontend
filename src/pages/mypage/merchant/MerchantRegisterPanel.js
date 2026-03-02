@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { FaStore, FaPhone, FaMapMarkerAlt, FaClock, FaTimesCircle, FaCamera } from 'react-icons/fa';
-// 1. Navigate 컴포넌트 대신 useNavigate 훅 임포트
+import { FaStore, FaPhone, FaMapMarkerAlt, FaClock, FaTimesCircle, FaCamera, FaCheckSquare } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 const MerchantRegisterPanel = () => {
-  // 2. useNavigate 훅 초기화
   const navigate = useNavigate();
 
   const [storeInfo, setStoreInfo] = useState({
@@ -14,6 +12,16 @@ const MerchantRegisterPanel = () => {
     restTel: '',
     restAddress: '',
     restBusiHours: '',
+  });
+
+  const [facilities, setFacilities] = useState({
+    wifi: false,
+    restRoom: false,
+    parkingAvailable: false,
+    packingPossible: false,
+    kakaoPay: false,
+    samsungPay: false,
+    kiosk: false
   });
 
   const [menuList, setMenuList] = useState([]);
@@ -27,6 +35,11 @@ const MerchantRegisterPanel = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setStoreInfo(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleFacilityChange = (e) => {
+    const { name, checked } = e.target;
+    setFacilities(prev => ({ ...prev, [name]: checked }));
   };
 
   const handleImageChange = (e) => {
@@ -67,14 +80,15 @@ const MerchantRegisterPanel = () => {
       restTel: storeInfo.restTel,
       restAddress: storeInfo.restAddress,
       restBusiHours: storeInfo.restBusiHours,
+      facilities: facilities, 
       menulist: menuList.map(m => ({
         menuName: m.name,
         menuPrice: parseInt(m.price)
       }))
     };
 
-    console.log(">>> [프론트 디버깅] 서버로 전송하는 DTO 데이터:", requestData);
-    console.log(">>> [프론트 디버깅] 메뉴 리스트 내용:", requestData.menulist);
+    // 💡 디버깅용 로그 추가: 백엔드로 전송하는 데이터(JSON) 확인
+    console.log(">>> [프론트엔드 디버깅] 백엔드로 전송하는 데이터(JSON):", JSON.stringify(requestData, null, 2));
 
     formData.append("dto", new Blob([JSON.stringify(requestData)], { type: "application/json" }));
 
@@ -83,6 +97,12 @@ const MerchantRegisterPanel = () => {
         formData.append("menuImages", menu.imageFile);
       }
     });
+
+    // 💡 디버깅용 로그 추가: FormData 내용 확인
+    console.log(">>> [프론트엔드 디버깅] FormData 내용 확인:");
+    for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+    }
 
     try {
       const response = await axios.post(
@@ -94,12 +114,8 @@ const MerchantRegisterPanel = () => {
         }
       );
 
-      // 성공 시
       if (response.status === 200) {
         alert('식당 정보가 성공적으로 저장되었습니다!');
-        console.log("등록 결과:", response.data);
-
-        // 3. 올바른 페이지 이동 방식 (navigate 함수 호출)
         navigate('/');
       }
     } catch (error) {
@@ -119,7 +135,9 @@ const MerchantRegisterPanel = () => {
     menuImg: { width: '45px', height: '45px', objectFit: 'cover', borderRadius: '5px', marginRight: '10px' },
     fileLabel: { padding: '10px', backgroundColor: '#f0f0f0', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' },
     addBtn: { padding: '12px 20px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' },
-    registerBtn: { width: '100%', padding: '18px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' }
+    registerBtn: { width: '100%', padding: '18px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '10px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' },
+    facilityGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px' },
+    checkboxLabel: { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }
   };
 
   return (
@@ -132,6 +150,20 @@ const MerchantRegisterPanel = () => {
         <div style={styles.formGroup}><FaPhone style={styles.icon} /><input name="restTel" value={storeInfo.restTel} onChange={handleInputChange} placeholder="연락처" style={styles.input} /></div>
         <div style={styles.formGroup}><FaMapMarkerAlt style={styles.icon} /><input name="restAddress" value={storeInfo.restAddress} onChange={handleInputChange} placeholder="가게 주소" style={styles.input} /></div>
         <div style={styles.formGroup}><FaClock style={styles.icon} /><input name="restBusiHours" value={storeInfo.restBusiHours} onChange={handleInputChange} placeholder="운영 시간 (예: 11:00 - 21:00)" style={styles.input} /></div>
+      </div>
+
+      {/* 시설 정보 섹션 */}
+      <div style={styles.section}>
+        <h4 style={{marginBottom: '10px'}}><FaCheckSquare style={styles.icon} /> 등록할 식당 시설 선택</h4>
+        <div style={styles.facilityGrid}>
+          <label style={styles.checkboxLabel}><input type="checkbox" name="wifi" checked={facilities.wifi} onChange={handleFacilityChange} /> 와이파이</label>
+          <label style={styles.checkboxLabel}><input type="checkbox" name="restRoom" checked={facilities.restRoom} onChange={handleFacilityChange} /> 화장실</label>
+          <label style={styles.checkboxLabel}><input type="checkbox" name="parkingAvailable" checked={facilities.parkingAvailable} onChange={handleFacilityChange} /> 주차 가능</label>
+          <label style={styles.checkboxLabel}><input type="checkbox" name="packingPossible" checked={facilities.packingPossible} onChange={handleFacilityChange} /> 포장 가능</label>
+          <label style={styles.checkboxLabel}><input type="checkbox" name="kakaoPay" checked={facilities.kakaoPay} onChange={handleFacilityChange} /> 카카오페이</label>
+          <label style={styles.checkboxLabel}><input type="checkbox" name="samsungPay" checked={facilities.samsungPay} onChange={handleFacilityChange} /> 삼성페이</label>
+          <label style={styles.checkboxLabel}><input type="checkbox" name="kiosk" checked={facilities.kiosk} onChange={handleFacilityChange} /> 키오스크</label>
+        </div>
       </div>
 
       {/* 메뉴 리스트 섹션 */}
@@ -150,12 +182,8 @@ const MerchantRegisterPanel = () => {
         <div style={{marginTop: '20px', display: 'flex', flexWrap: 'wrap', gap: '10px'}}>
           <input placeholder="메뉴명" value={newMenu.name} onChange={(e)=>setNewMenu({...newMenu, name: e.target.value})} style={{...styles.input, minWidth: '120px'}} />
           <input placeholder="가격" type="number" value={newMenu.price} onChange={(e)=>setNewMenu({...newMenu, price: e.target.value})} style={{...styles.input, maxWidth: '100px'}} />
-          
-          <label htmlFor="file-upload" style={styles.fileLabel}>
-            <FaCamera /> {newMenu.imageFile ? "변경" : "사진 추가"}
-          </label>
+          <label htmlFor="file-upload" style={styles.fileLabel}><FaCamera /> {newMenu.imageFile ? "변경" : "사진 추가"}</label>
           <input id="file-upload" type="file" accept="image/*" onChange={handleImageChange} style={{display: 'none'}} />
-          
           <button onClick={handleAddMenu} style={styles.addBtn}>메뉴 추가</button>
         </div>
       </div>
