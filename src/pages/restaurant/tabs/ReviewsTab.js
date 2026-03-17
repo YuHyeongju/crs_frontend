@@ -16,7 +16,7 @@ const ReviewsTab = ({ restIdx }) => {
         }
 
         try {
-            console.log("]restIdx 값:", restIdx);
+            console.log("restIdx 값:", restIdx);
             const res = await axios.get(`/api/reviews/${restIdx}`);
             
             const sortedReviews = res.data.sort((a, b) => b.idx - a.idx);
