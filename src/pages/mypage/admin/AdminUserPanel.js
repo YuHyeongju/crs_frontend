@@ -1,54 +1,75 @@
-import React, { useState } from 'react';
-
-// 와이어프레임에 맞춰 더미 사용자 데이터 생성
-const dummyUsers = [
-  {
-    id: 'user123',
-    userType: '일반 사용자',
-    email: 'user123@example.com',
-    joinDate: '2024.01.15',
-    status: '활성',
-    congestionCount: 10,
-    reviewCount: 5,
-  },
-  {
-    id: 'merchant456',
-    userType: '상인',
-    email: 'merchant456@example.com',
-    joinDate: '2023.11.01',
-    status: '활성',
-    congestionCount: 50,
-    reviewCount: 20,
-  },
-  {
-    id: 'user789',
-    userType: '일반 사용자',
-    email: 'user789@example.com',
-    joinDate: '2024.03.20',
-    status: '정지',
-    congestionCount: 2,
-    reviewCount: 1,
-  },
-];
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 
 const AdminUserPanel = () => {
-  const [users, setUsers] = useState(dummyUsers);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const handleViewDetails = (userId) => {
-    alert(`사용자 ID: ${userId}의 상세 정보를 봅니다.`);
-  };
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/api/admins/users', { withCredentials: true });
+      setUsers(response.data);
+    } catch (err) {
+      setError('사용자 목록을 불러오는 데 실패했습니다.');
+      console.error("사용자 목록 로드 실패:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleSanction = (userId) => {
-    if (window.confirm(`정말로 사용자 ID: ${userId}를 제재하시겠습니까?`)) {
-      alert(`사용자 ID: ${userId}가 제재 처리되었습니다.`);
-      setUsers(users.map(user => user.id === userId ? { ...user, status: '제재됨' } : user));
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleViewDetails = async (userIdx) => {
+    try {
+      const response = await axios.get(`/api/admins/users/${userIdx}`, { withCredentials: true });
+      const userDetails = response.data;
+      alert(`사용자 상세 정보:\n` +
+            `ID: ${userDetails.id}\n` +
+            `유형: ${userDetails.userType}\n` +
+            `이름: ${userDetails.name}\n` +
+            `이메일: ${userDetails.email}\n` +
+            `전화번호: ${userDetails.phNum}\n` +
+            `성별: ${userDetails.gender}\n` +
+            (userDetails.businessNum ? `사업자 번호: ${userDetails.businessNum}\n` : '') +
+            (userDetails.adminNum ? `관리자 번호: ${userDetails.adminNum}\n` : '') +
+            `가입일: ${new Date(userDetails.createTime).toLocaleDateString()}\n` +
+            `상태: ${userDetails.status}\n` +
+            `혼잡도 입력 횟수: ${userDetails.congestionCount}\n` +
+            `리뷰 개수: ${userDetails.reviewCount}`);
+    } catch (err) {
+      alert('사용자 상세 정보를 불러오는 데 실패했습니다.');
+      console.error("사용자 상세 정보 로드 실패:", err);
     }
   };
 
-  const handleDeactivate = (userId) => {
-    if (window.confirm(`정말로 사용자 ID: ${userId}를 탈퇴 처리하시겠습니까?`)) {
-      alert(`사용자 ID: ${userId}가 탈퇴 처리되었습니다.`);
-      setUsers(users.filter(user => user.id !== userId));
+  const handleSanction = async (userIdx) => {
+    const reason = prompt(`사용자 ID: ${userIdx}를 제재하시겠습니까? 제재 사유를 입력해주세요.`);
+    if (!reason) return;
+
+    try {
+      await axios.post(`/api/admins/users/${userIdx}/sanction`, { reason }, { withCredentials: true });
+      alert(`사용자 ID: ${userIdx}가 제재 처리되었습니다.`);
+      fetchUsers(); // 목록 새로고침
+    } catch (err) {
+      alert('제재 처리 중 오류가 발생했습니다.');
+      console.error("사용자 제재 실패:", err);
+    }
+  };
+
+  const handleDeactivate = async (userIdx) => {
+    if (!window.confirm(`정말로 사용자 ID: ${userIdx}를 탈퇴 처리하시겠습니까?`)) return;
+
+    try {
+      await axios.post(`/api/admins/users/${userIdx}/deactivate`, {}, { withCredentials: true });
+      alert(`사용자 ID: ${userIdx}가 탈퇴 처리되었습니다.`);
+      fetchUsers(); // 목록 새로고침
+    } catch (err) {
+      alert('탈퇴 처리 중 오류가 발생했습니다.');
+      console.error("사용자 탈퇴 처리 실패:", err);
     }
   };
 
@@ -64,7 +85,7 @@ const AdminUserPanel = () => {
       border: '1px solid #e0e0e0',
     },
     cardItem: { display: 'flex', marginBottom: '8px', fontSize: '14px', color: '#555' },
-    cardLabel: { fontWeight: 'bold', color: '#333', marginRight: '5px', minWidth: '120px' }, // minWidth로 라벨 너비 고정
+    cardLabel: { fontWeight: 'bold', color: '#333', marginRight: '5px', minWidth: '120px' },
     cardContent: { flexGrow: 1 },
     buttonGroup: { display: 'flex', justifyContent: 'flex-end', marginTop: '15px' },
     button: {
@@ -97,23 +118,26 @@ const AdminUserPanel = () => {
     },
   };
 
+  if (loading) return <div style={{ textAlign: 'center', padding: '50px' }}>사용자 데이터를 불러오는 중...</div>;
+  if (error) return <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>오류: {error}</div>;
+
   return (
     <div style={styles.panel}>
       <div style={styles.header}>사용자 관리</div>
       {users.length > 0 ? (
         users.map((user) => (
-          <div key={user.id} style={styles.userCard}>
+          <div key={user.userIdx} style={styles.userCard}>
             <div style={styles.cardItem}><span style={styles.cardLabel}>아이디:</span><span style={styles.cardContent}>{user.id}</span></div>
             <div style={styles.cardItem}><span style={styles.cardLabel}>사용자 유형:</span><span style={styles.cardContent}>{user.userType}</span></div>
             <div style={styles.cardItem}><span style={styles.cardLabel}>이메일:</span><span style={styles.cardContent}>{user.email}</span></div>
-            <div style={styles.cardItem}><span style={styles.cardLabel}>가입일:</span><span style={styles.cardContent}>{user.joinDate}</span></div>
+            <div style={styles.cardItem}><span style={styles.cardLabel}>가입일:</span><span style={styles.cardContent}>{new Date(user.createTime).toLocaleDateString()}</span></div>
             <div style={styles.cardItem}><span style={styles.cardLabel}>상태:</span><span style={styles.cardContent}>{user.status}</span></div>
-            <div style={styles.cardItem}><span style={styles.cardLabel}>혼잡도 입력횟수:</span><span style={styles.cardContent}>{user.congestionCount}</span></div>
+            <div style={styles.cardItem}><span style={styles.cardLabel}>혼잡도 입력 횟수:</span><span style={styles.cardContent}>{user.congestionCount}</span></div>
             <div style={styles.cardItem}><span style={styles.cardLabel}>리뷰 개수:</span><span style={styles.cardContent}>{user.reviewCount}</span></div>
             <div style={styles.buttonGroup}>
-              <button onClick={() => handleViewDetails(user.id)} style={{ ...styles.button, ...styles.detailsButton }}>상세보기</button>
-              <button onClick={() => handleSanction(user.id)} style={{ ...styles.button, ...styles.sanctionButton }}>제재</button>
-              <button onClick={() => handleDeactivate(user.id)} style={{ ...styles.button, ...styles.deactivateButton }}>탈퇴 처리</button>
+              <button onClick={() => handleViewDetails(user.userIdx)} style={{ ...styles.button, ...styles.detailsButton }}>상세보기</button>
+              <button onClick={() => handleSanction(user.userIdx)} style={{ ...styles.button, ...styles.sanctionButton }}>제재</button>
+              <button onClick={() => handleDeactivate(user.userIdx)} style={{ ...styles.button, ...styles.deactivateButton }}>탈퇴 처리</button>
             </div>
           </div>
         ))

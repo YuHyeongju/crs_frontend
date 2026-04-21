@@ -1,21 +1,39 @@
 
-import React, { useState } from 'react';
-
-// 와이어프레임에 맞춰 더미 신고 데이터 생성
-const dummyReports = [
-  { id: 1, reviewId: 'review101', reporterId: 'user123', targetId: 'user456', reason: '욕설 및 비방', content: '음식이 너무 별로네요. 사장님은...' },
-  { id: 2, reviewId: 'review102', reporterId: 'user789', targetId: 'user123', reason: '허위 사실 유포', content: '이 식당은 위생이 최악입니다. 바퀴벌레도 봤어요.' },
-  { id: 3, reviewId: 'review103', reporterId: 'user456', targetId: 'user789', reason: '불법 광고', content: '맛있으면 제 블로그로 오세요! (블로그 URL)' },
-];
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 const AdminReportPanel = () => {
-  const [reports, setReports] = useState(dummyReports);
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const handleDelete = (reportId) => {
-    if (window.confirm(`리뷰 신고 ID ${reportId}를 삭제하시겠습니까?`)) {
-      alert(`리뷰 ID ${reportId}가 삭제되었습니다.`);
-      // 실제로는 서버 API를 호출하여 리뷰를 삭제하는 로직을 구현합니다.
-      setReports(reports.filter(report => report.id !== reportId));
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get('/api/admins/reports');
+      setReports(response.data);
+    } catch (err) {
+      setError('리뷰 신고 목록을 불러오는 데 실패했습니다.');
+      console.error('Failed to fetch review reports:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const processReport = async (reportIdx, approve) => {
+    if (window.confirm(`정말로 이 신고를 ${approve ? '승인' : '거절'}하시겠습니까?`)) {
+      try {
+        await axios.post(`/api/admins/reports/${reportIdx}/process`, null, { params: { approve } });
+        alert(`신고가 성공적으로 ${approve ? '승인' : '거절'}되었습니다.`);
+        fetchReports(); // Refresh the list
+      } catch (err) {
+        setError(`신고 처리 중 오류가 발생했습니다: ${err.response?.data || err.message}`);
+        console.error('Failed to process report:', err);
+      }
     }
   };
 
@@ -25,10 +43,24 @@ const AdminReportPanel = () => {
     table: { width: '100%', borderCollapse: 'collapse', marginTop: '20px' },
     tableHeader: { backgroundColor: '#e9ecef', borderBottom: '2px solid #dee2e6' },
     tableCell: { padding: '12px 15px', textAlign: 'left', borderBottom: '1px solid #dee2e6', fontSize: '14px', color: '#555' },
-    contentCell: { width: '40%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-    actionCell: { width: '80px', textAlign: 'center' },
-    deleteButton: { padding: '8px 12px', borderRadius: '5px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#dc3545', color: 'white' },
+    contentCell: { width: '25%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    actionCell: { width: '150px', textAlign: 'center' },
+    button: { padding: '8px 12px', borderRadius: '5px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', margin: '0 5px' },
+    approveButton: { backgroundColor: '#28a745', color: 'white' },
+    rejectButton: { backgroundColor: '#dc3545', color: 'white' },
+    disabledButton: { backgroundColor: '#cccccc', color: '#666666', cursor: 'not-allowed' },
+    statusPending: { color: '#ffc107', fontWeight: 'bold' },
+    statusApproved: { color: '#28a745', fontWeight: 'bold' },
+    statusRejected: { color: '#dc3545', fontWeight: 'bold' },
   };
+
+  if (loading) {
+    return <div style={styles.panel}>로딩 중...</div>;
+  }
+
+  if (error) {
+    return <div style={styles.panel}><div style={{ color: 'red' }}>오류: {error}</div></div>;
+  }
 
   return (
     <div style={styles.panel}>
@@ -36,31 +68,56 @@ const AdminReportPanel = () => {
       <table style={styles.table}>
         <thead>
           <tr style={styles.tableHeader}>
+            <th style={styles.tableCell}>신고 ID</th>
             <th style={styles.tableCell}>리뷰 ID</th>
             <th style={styles.tableCell}>신고자 ID</th>
-            <th style={styles.tableCell}>신고 대상자 ID</th>
             <th style={styles.tableCell}>신고 사유</th>
             <th style={styles.tableCell}>리뷰 내용</th>
-            <th style={{ ...styles.tableCell, ...styles.actionCell }}>삭제</th>
+            <th style={styles.tableCell}>상태</th>
+            <th style={{ ...styles.tableCell, ...styles.actionCell }}>처리</th>
           </tr>
         </thead>
         <tbody>
           {reports.length > 0 ? (
             reports.map((report) => (
-              <tr key={report.id}>
+              <tr key={report.reportIdx}>
+                <td style={styles.tableCell}>{report.reportIdx}</td>
                 <td style={styles.tableCell}>{report.reviewId}</td>
                 <td style={styles.tableCell}>{report.reporterId}</td>
-                <td style={styles.tableCell}>{report.targetId}</td>
                 <td style={styles.tableCell}>{report.reason}</td>
                 <td style={{ ...styles.tableCell, ...styles.contentCell }}>{report.content}</td>
+                <td style={styles.tableCell}>
+                  <span style={
+                    report.status === 'PENDING' ? styles.statusPending :
+                    report.status === 'APPROVED' ? styles.statusApproved :
+                    report.status === 'REJECTED' ? styles.statusRejected : {}
+                  }>
+                    {report.status === 'PENDING' ? '대기 중' :
+                     report.status === 'APPROVED' ? '승인됨' :
+                     report.status === 'REJECTED' ? '거절됨' : report.status}
+                  </span>
+                </td>
                 <td style={{ ...styles.tableCell, ...styles.actionCell }}>
-                  <button onClick={() => handleDelete(report.id)} style={styles.deleteButton}>삭제</button>
+                  <button
+                    onClick={() => processReport(report.reportIdx, true)}
+                    style={{ ...styles.button, ...styles.approveButton, ...(report.status !== 'PENDING' && styles.disabledButton) }}
+                    disabled={report.status !== 'PENDING'}
+                  >
+                    승인
+                  </button>
+                  <button
+                    onClick={() => processReport(report.reportIdx, false)}
+                    style={{ ...styles.button, ...styles.rejectButton, ...(report.status !== 'PENDING' && styles.disabledButton) }}
+                    disabled={report.status !== 'PENDING'}
+                  >
+                    거절
+                  </button>
                 </td>
               </tr>
             ))
           ) : (
             <tr>
-              <td colSpan="6" style={{ textAlign: 'center', padding: '20px' }}>처리할 리뷰 신고가 없습니다.</td>
+              <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>처리할 리뷰 신고가 없습니다.</td>
             </tr>
           )}
         </tbody>

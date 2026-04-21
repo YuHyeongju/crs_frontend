@@ -38,6 +38,10 @@ function LoginPage() {
         console.log("백엔드 로그인 통신 성공")
         const userData = response.data;
         
+        // --- 이 부분만 추가되었습니다 ---
+        sessionStorage.setItem('user', JSON.stringify(userData));
+        // ------------------------------
+
         alert(`${userData.name || id}님, 환영합니다!`);
         
         // 3. AuthContext의 login 함수 호출 (서버에서 준 실제 역할을 전달)
