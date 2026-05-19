@@ -52,12 +52,13 @@ const RestaurantDetailPage = () => {
                         const congRes = await axios.get(`http://localhost:8080/api/congestion/${id}`);
 
                         // 3. 평점/리뷰 수 요청 (detail 호출로 DB 등록된 뒤이므로 값이 잡힘)
-                        let stats = { averageRating: 0, reviewCount: 0 };
+                        let stats = { averageRating: 0, reviewCount: 0, ownerUserIdx: null };
                         try {
                             const statsRes = await axios.get(`http://localhost:8080/api/restaurants/kakaoId/${id}`);
                             stats = {
                                 averageRating: statsRes.data.averageRating || 0,
-                                reviewCount: statsRes.data.reviewCount || 0
+                                reviewCount: statsRes.data.reviewCount || 0,
+                                ownerUserIdx: statsRes.data.ownerUserIdx ?? null
                             };
                         } catch (e) {
                             console.warn("평점/리뷰 조회 실패:", e);
@@ -71,7 +72,8 @@ const RestaurantDetailPage = () => {
                             dataStatus: serverData.status,
                             congestion: congRes.data === "null" ? "정보없음" : congRes.data,
                             averageRating: stats.averageRating,
-                            reviewCount: stats.reviewCount
+                            reviewCount: stats.reviewCount,
+                            ownerUserIdx: stats.ownerUserIdx
                         });
                     } catch (error) {
                         console.error("서버 데이터 연동 실패:", error);
@@ -184,6 +186,7 @@ const RestaurantDetailPage = () => {
                         <ReviewsTab
                             restaurant={restaurant}
                             restIdx={restaurant.id}
+                            ownerUserIdx={restaurant.ownerUserIdx}
                         />
                     )}
                 </div>

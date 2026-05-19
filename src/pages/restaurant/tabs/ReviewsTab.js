@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { AuthContext } from '../../../context/AuthContext';
 
-const ReviewsTab = ({ restIdx }) => {
+const ReviewsTab = ({ restIdx, ownerUserIdx }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { userRole, userIdx } = useContext(AuthContext);
+
+    // 해당 가게를 소유한 상인에게만 신고 버튼 노출 (서버에서도 동일 검증)
+    const canReport = userRole === 'MERCHANT'
+        && ownerUserIdx != null
+        && String(ownerUserIdx) === String(userIdx);
 
     const [rating, setRating] = useState(0);
     const [content, setContent] = useState("");
@@ -56,6 +63,26 @@ const ReviewsTab = ({ restIdx }) => {
         } catch (error) {
             console.error("등록 에러:", error);
             alert("등록에 실패했습니다.");
+        }
+    };
+
+    const handleReport = async (reviewIdx) => {
+        const reason = window.prompt("이 리뷰를 신고하는 사유를 입력해주세요. (관리자가 검토합니다)");
+        if (reason === null) return; // 취소
+        if (!reason.trim()) {
+            alert("신고 사유를 입력해야 합니다.");
+            return;
+        }
+        try {
+            await axios.post('/api/reviews/report', {
+                reviewIdx: Number(reviewIdx),
+                reporterUserIdx: Number(userIdx),
+                reason: reason.trim()
+            });
+            alert("리뷰가 신고되었습니다. 관리자 검토 후 처리됩니다.");
+        } catch (error) {
+            console.error("신고 에러:", error);
+            alert(error.response?.data || "신고에 실패했습니다.");
         }
     };
 
@@ -115,6 +142,24 @@ const ReviewsTab = ({ restIdx }) => {
                                 <span style={{ color: '#BBB', fontSize: '12px' }}>
                                     {r.reviewAt ? new Date(r.reviewAt).toLocaleDateString().replace(/\.$/, '') : '2026.03.18'}
                                 </span>
+                                {canReport && (
+                                    <button
+                                        onClick={() => handleReport(r.reviewIdx)}
+                                        style={{
+                                            marginLeft: 'auto',
+                                            background: 'none',
+                                            border: '1px solid #FF4D4D',
+                                            color: '#FF4D4D',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            padding: '3px 8px',
+                                            cursor: 'pointer'
+                                        }}
+                                        title="이 리뷰 신고하기"
+                                    >
+                                        신고
+                                    </button>
+                                )}
                             </div>
 
                             {/* 본문: 리뷰 내용 */}
