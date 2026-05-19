@@ -7,7 +7,7 @@ const GoToMyLocationButton = ({ currentUserCoords, handleGoToMyLocation }) => {
             onClick={handleGoToMyLocation}
             style={{
                 position: 'fixed',
-                top: '780px',
+                top: '815px',
                 right: '60px',
                 zIndex: 10,
                 backgroundColor: '#fff',

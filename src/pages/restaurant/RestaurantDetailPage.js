@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import axios from 'axios';
 import HomeTab from './tabs/HomeTab';
 import PhotosTab from './tabs/PhotosTab';
 import MenuTab from './tabs/MenuTab';
 import ReviewsTab from './tabs/ReviewsTab';
+import { AuthContext } from '../../context/AuthContext';
 
 const RestaurantDetailPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { restaurantId } = useParams();
+    const { isLoggedIn, userIdx } = useContext(AuthContext);
 
     const restaurantDataFromState = location.state?.restaurantData;
     const restaurantNameFromState = location.state?.restaurantName;
@@ -17,6 +19,7 @@ const RestaurantDetailPage = () => {
     const [restaurant, setRestaurant] = useState(null);
     const [activeTab, setActiveTab] = useState('home');
     const [loading, setLoading] = useState(false);
+    const [isBookmarked, setIsBookmarked] = useState(false);
     const isProcessing = useRef(false);
 
     const fetchCombinedData = useCallback(async (id, name) => {
@@ -48,6 +51,18 @@ const RestaurantDetailPage = () => {
                         // 2. 혼잡도 정보 요청
                         const congRes = await axios.get(`http://localhost:8080/api/congestion/${id}`);
 
+                        // 3. 평점/리뷰 수 요청 (detail 호출로 DB 등록된 뒤이므로 값이 잡힘)
+                        let stats = { averageRating: 0, reviewCount: 0 };
+                        try {
+                            const statsRes = await axios.get(`http://localhost:8080/api/restaurants/kakaoId/${id}`);
+                            stats = {
+                                averageRating: statsRes.data.averageRating || 0,
+                                reviewCount: statsRes.data.reviewCount || 0
+                            };
+                        } catch (e) {
+                            console.warn("평점/리뷰 조회 실패:", e);
+                        }
+
                         setRestaurant({
                             ...matched,
                             // [핵심] matched.id(카카오ID) 대신 서버 엔티티의 PK를 할당합니다.
@@ -55,8 +70,8 @@ const RestaurantDetailPage = () => {
                             id: serverData.restIdx || serverData.id,
                             dataStatus: serverData.status,
                             congestion: congRes.data === "null" ? "정보없음" : congRes.data,
-                            rating: (Math.random() * 1.5 + 3.5).toFixed(1),
-                            reviewCount: Math.floor(Math.random() * 100)
+                            averageRating: stats.averageRating,
+                            reviewCount: stats.reviewCount
                         });
                     } catch (error) {
                         console.error("서버 데이터 연동 실패:", error);
@@ -84,6 +99,41 @@ const RestaurantDetailPage = () => {
         }
     }, [restaurantId, restaurantNameFromState, restaurantDataFromState, fetchCombinedData]);
 
+    // 진입 시 현재 가게가 즐겨찾기 되어 있는지 조회
+    useEffect(() => {
+        if (!isLoggedIn || !userIdx || !restaurantId) {
+            setIsBookmarked(false);
+            return;
+        }
+        axios.get(`http://localhost:8080/api/bookmarks/my-bookmark-list/${userIdx}`)
+            .then(res => {
+                const ids = (res.data || []).map(String);
+                setIsBookmarked(ids.includes(String(restaurantId)));
+            })
+            .catch(err => console.warn("즐겨찾기 상태 조회 실패:", err));
+    }, [isLoggedIn, userIdx, restaurantId]);
+
+    const handleBookmarkToggle = useCallback(async () => {
+        if (!isLoggedIn) {
+            alert("로그인 후 이용 가능합니다.");
+            navigate('/login', { state: { from: location.pathname } });
+            return;
+        }
+        try {
+            await axios.post('http://localhost:8080/api/bookmarks/toggle', {
+                userIdx: userIdx,
+                kakaoId: restaurantId,
+                restName: restaurant?.place_name,
+                restAddress: restaurant?.road_address_name || restaurant?.address_name,
+                restTel: restaurant?.phone
+            }, { withCredentials: true });
+            setIsBookmarked(prev => !prev);
+        } catch (error) {
+            console.error("즐겨찾기 처리 실패:", error);
+            alert("처리에 실패했습니다. 다시 시도해주세요.");
+        }
+    }, [isLoggedIn, userIdx, restaurantId, restaurant, navigate, location.pathname]);
+
     if (loading && !restaurant) return <div style={styles.loading}>정보를 동기화 중입니다...</div>;
     if (!restaurant) return <div style={styles.loading}>정보를 불러올 수 없습니다.</div>;
 
@@ -94,11 +144,20 @@ const RestaurantDetailPage = () => {
             <div style={styles.card}>
                 <div style={styles.header}>
                     <div>
-                        <h1 style={styles.title}>{restaurant.place_name}</h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <h1 style={styles.title}>{restaurant.place_name}</h1>
+                            <button
+                                onClick={handleBookmarkToggle}
+                                style={styles.bookmarkBtn}
+                                title={isBookmarked ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                            >
+                                {isBookmarked ? '⭐' : '☆'}
+                            </button>
+                        </div>
                         <p style={styles.category}>{restaurant.category_name}</p>
                     </div>
                     <div style={styles.stats}>
-                        <div style={styles.rating}>⭐ {restaurant.rating}</div>
+                        <div style={styles.rating}>⭐ {restaurant.averageRating ?? 0}</div>
                         <div style={styles.statusBadge(restaurant.congestion)}>
                             현재 혼잡도: {restaurant.congestion}
                         </div>
@@ -143,6 +202,7 @@ const styles = {
     category: { color: '#888', marginTop: '5px' },
     stats: { textAlign: 'right' },
     rating: { fontSize: '22px', fontWeight: 'bold', color: '#f39c12' },
+    bookmarkBtn: { background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', padding: '0', lineHeight: '1' },
     statusBadge: (status) => {
         const isBusy = status === '혼잡' || status === '매우 혼잡';
         const isNormal = status === '보통';

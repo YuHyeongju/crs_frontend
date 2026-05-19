@@ -41,7 +41,7 @@ const HomeTab = ({ restaurant }) => {
             }}>
                 <h4 style={{ color: '#333', marginBottom: '10px' }}>인기 정보</h4>
                 <p style={{ fontSize: '14px', color: '#666' }}>
-                    이 가게는 평점 {restaurant.rating}점으로 {restaurant.reviewCount}개의 리뷰를 받았습니다.
+                    이 가게는 평점 {restaurant.averageRating ?? 0}점으로 {restaurant.reviewCount ?? 0}개의 리뷰를 받았습니다.
                 </p>
             </div>
         </div>

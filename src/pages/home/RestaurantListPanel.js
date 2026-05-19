@@ -162,7 +162,7 @@ const RestaurantListPanel = ({
                                                 </span>
                                             )}<br />
                                             <span style={{ fontSize: '13px', color: '#555' }}>
-                                                평점: **{place.rating}**점 | 리뷰: **{place.reviewCount}**개
+                                                평점: {place.averageRating}점 | 리뷰: {place.reviewCount}개
                                             </span><br />
                                             <span style={{
                                                 fontSize: '13px',

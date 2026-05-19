@@ -12,11 +12,7 @@ import axios from 'axios';
 const RESTAURANT_PANEL_WIDTH_DESKTOP = '280px';
 const MOBILE_BREAKPOINT = 768;
 
-const generateDynamicDetails = () => {
-    const ratings = (Math.random() * (5.0 - 3.0) + 3.0).toFixed(1);
-    const reviewCounts = Math.floor(Math.random() * 200) + 10;
-    return { rating: ratings, reviewCount: reviewCounts };
-};
+
 
 const HomePage = () => {
     const navigate = useNavigate();
@@ -117,7 +113,7 @@ const HomePage = () => {
             const ids = currentList.map(item => item.id);
             if (ids.length === 0) return;
 
-            // 백엔드 API 호출 (실제 컨트롤러 경로: /api/congestion/bulk-status)
+            // 백엔드 API 호출 (실제 컨트롤러 경로: /api/congestion/bulkStatus)
             const response = await axios.post('/api/congestion/bulkStatus', ids);
             const realData = response.data; // 형식: { "카카오ID": "여유", ... }
 
@@ -215,7 +211,7 @@ const HomePage = () => {
                     <span> 가게이름: ${place.place_name}</span><br/>
                     <span> 주소: ${place.road_address_name || place.address_name}</span><br/>
                     <span> 전화번호: ${place.phone || '정보 없음'}</span><br/>
-                    <span> 평점: ${place.rating}</span><br/>
+                    <span> 평점: ${place.averageRating}</span><br/>
                     <span> 리뷰: ${place.reviewCount}개</span><br/>
                     <span style="color: ${displayCongestion === '매우 혼잡' ? '#dc3545' :
                         displayCongestion === '혼잡' ? '#ffc107' :
@@ -242,14 +238,14 @@ const HomePage = () => {
     }, []);
 
     // 45개 검색 로직 복구 (Pagination 활용)
-    const searchAndDisplayRestaurants = useCallback((centerLatLng, searchType = 'initial', keyword = '', setMapBounds = true) => {
+    const searchAndDisplayRestaurants = useCallback(async (centerLatLng, searchType = 'initial', keyword = '', setMapBounds = true) => {
         if (!mapInstance || !window.kakao) return;
         removeRestaurantMarkers();
 
         const ps = new window.kakao.maps.services.Places();
         let allResults = [];
 
-        const callback = (data, status, pagination) => {
+        const callback = async (data, status, pagination) => {
             if (status === window.kakao.maps.services.Status.OK) {
                 const results = data.filter(p => p.category_group_code === 'FD6');
                 allResults = [...allResults, ...results];
@@ -261,8 +257,26 @@ const HomePage = () => {
                 }
 
                 const bounds = new window.kakao.maps.LatLngBounds();
+
+                // 모든 식당 상세(평점/리뷰수)를 한 번의 요청으로
+                const ids = allResults.map(p => p.id);
+                let detailsMap = {};
+                try {
+                    const response = await axios.post('/api/restaurants/bulkDetails', ids);
+                    detailsMap = response.data || {};
+                } catch (error) {
+                    console.warn("식당 상세 일괄 조회 실패:", error);
+                }
+
+                // 마커는 데이터 다 받은 뒤 동기 루프로 한꺼번에 생성
                 const newList = allResults.map((place, i) => {
-                    const merged = { ...place, ...generateDynamicDetails(), congestion: '혼잡도 이력 없음' };
+                    const detail = detailsMap[place.id] || { averageRating: 0, reviewCount: 0 };
+                    const merged = {
+                        ...place,
+                        averageRating: detail.averageRating || 0,
+                        reviewCount: detail.reviewCount || 0,
+                        congestion: '혼잡도 이력 없음'
+                    };
                     const marker = createAndDisplayMarker(merged, mapInstance, i + 1, handleListItemClick);
                     restaurantMarkersRef.current.push(marker);
                     bounds.extend(new window.kakao.maps.LatLng(place.y, place.x));
@@ -419,7 +433,7 @@ const HomePage = () => {
                                 return;
                             }
                             try {
-                                const response = await axios.get(`api/congestion/${r.id}`);
+                                const response = await axios.get(`/api/congestion/${r.id}`);
                                 const restaurantWithLatest = { ...r, congestion: response.data };
                                 setSelectedRestaurant(restaurantWithLatest);
                                 setShowCongestionModal(true);
