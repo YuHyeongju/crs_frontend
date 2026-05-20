@@ -8,6 +8,7 @@ const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
 const RestaurantListPanel = ({
     restaurantList,
     handleListItemClick,
+    onPanelItemClick,
     onCongestionChangeClick,
     showRestaurantPanel,
     setShowRestaurantPanel,
@@ -112,7 +113,10 @@ const RestaurantListPanel = ({
                                         <li
                                             key={place.id}
                                             id={`restaurant-item-${place.id}`}
-                                            onClick={() => handleListItemClick(place.id)}
+                                            onClick={() => {
+                                                if (onPanelItemClick) onPanelItemClick(place);
+                                                handleListItemClick(place.id);
+                                            }}
                                             style={{
                                                 position: 'relative', // 별 배치를 위한 기준점
                                                 padding: '12px 10px',

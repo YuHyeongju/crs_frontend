@@ -57,6 +57,10 @@ const BookmarksPanel = () => {
       width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer',
       backgroundColor: isActive ? '#007bff' : 'white', color: isActive ? 'white' : '#555', border: '1px solid #ddd'
     }),
+    navButton: (disabled) => ({
+      width: '35px', height: '35px', borderRadius: '50%', cursor: disabled ? 'not-allowed' : 'pointer',
+      backgroundColor: 'white', color: disabled ? '#ccc' : '#555', border: '1px solid #ddd', fontWeight: 'bold'
+    }),
     noBookmarksBox: { textAlign: 'center', padding: '60px 20px', color: '#ccc' }
   };
 
@@ -89,9 +93,25 @@ const BookmarksPanel = () => {
             ))}
           </div>
           <div style={styles.pagination}>
-            {[...Array(totalPages)].map((_, i) => (
+            <button
+              style={styles.navButton(currentPage === 1)}
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              aria-label="이전 페이지"
+            >
+              {'<'}
+            </button>
+            {[...Array(Math.max(totalPages, 1))].map((_, i) => (
               <button key={i + 1} style={styles.pageButton(currentPage === i + 1)} onClick={() => setCurrentPage(i + 1)}>{i + 1}</button>
             ))}
+            <button
+              style={styles.navButton(currentPage >= totalPages)}
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage >= totalPages}
+              aria-label="다음 페이지"
+            >
+              {'>'}
+            </button>
           </div>
         </>
       ) : (

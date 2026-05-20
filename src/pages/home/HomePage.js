@@ -170,6 +170,13 @@ const HomePage = () => {
         if (targetElement) targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, []);
 
+    const handlePanelItemClick = useCallback((place) => {
+        if (!mapInstance || !place) return;
+        const latLng = new window.kakao.maps.LatLng(place.y, place.x);
+        if (mapInstance.getLevel() > 4) mapInstance.setLevel(4);
+        mapInstance.panTo(latLng);
+    }, [mapInstance]);
+
     const createAndDisplayMarker = useCallback((place, map, index, onMarkerClick) => {
         // 1. 마커의 위치 좌표 객체 생성
         const position = new window.kakao.maps.LatLng(place.y, place.x);
@@ -238,7 +245,7 @@ const HomePage = () => {
     }, []);
 
     // 45개 검색 로직 복구 (Pagination 활용)
-    const searchAndDisplayRestaurants = useCallback(async (centerLatLng, searchType = 'initial', keyword = '', setMapBounds = true) => {
+    const searchAndDisplayRestaurants = useCallback(async (centerLatLng, searchType = 'initial', keyword = '', setMapBounds = false) => {
         if (!mapInstance || !window.kakao) return;
         removeRestaurantMarkers();
 
@@ -253,6 +260,14 @@ const HomePage = () => {
                 // 최대 45개(3페이지)까지 가져오기
                 if (pagination.hasNextPage && allResults.length < 45) {
                     pagination.nextPage();
+                    return;
+                }
+
+                if (allResults.length === 0) {
+                    setRestaurantList([]);
+                    if (searchType === 'keyword') {
+                        alert('음식점 카테고리에서 검색 결과가 없습니다.');
+                    }
                     return;
                 }
 
@@ -285,12 +300,28 @@ const HomePage = () => {
 
                 setRestaurantList(newList);
 
+                if (setMapBounds && !bounds.isEmpty() && mapInstance) {
+                    mapInstance.setBounds(bounds);
+                }
+
                 fetchAndApplyCongestion(newList);
 
+            } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
+                setRestaurantList([]);
+                if (searchType === 'keyword') {
+                    alert('검색 결과가 없습니다.');
+                }
+            } else {
+                console.error('카카오 검색 오류:', status);
+                if (searchType === 'keyword') {
+                    alert('검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+                }
             }
         };
 
-        const options = { location: centerLatLng, radius: 2000 };
+        const options = searchType === 'keyword'
+            ? { location: centerLatLng }
+            : { location: centerLatLng, radius: 2000 };
         if (searchType === 'keyword') ps.keywordSearch(keyword, callback, options);
         else ps.categorySearch('FD6', callback, options);
     }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker, handleListItemClick, fetchAndApplyCongestion]);
@@ -444,6 +475,7 @@ const HomePage = () => {
                             }
                         }}
                         handleListItemClick={handleListItemClick}
+                        onPanelItemClick={handlePanelItemClick}
                     />
                     <GoToMyLocationButton
                         currentUserCoords={currentUserCoords}

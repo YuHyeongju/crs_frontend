@@ -42,7 +42,7 @@ const RestaurantDetailPage = () => {
                             kakaoId: id,
                             restName: matched.place_name,
                             restAddress: matched.road_address_name || matched.address_name,
-                            restPhone: matched.phone
+                            restTel: matched.phone
                         }, { withCredentials: true });
 
                         // 서버가 반환한 Restaurant 엔티티 데이터

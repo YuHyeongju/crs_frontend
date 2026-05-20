@@ -5,6 +5,8 @@ import { FaHistory } from 'react-icons/fa';
 const MyCongestionsPanel = () => {
   const [congestions, setCongestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
 
   useEffect(() => {
     const userIdx = sessionStorage.getItem('userIdx');
@@ -15,7 +17,7 @@ const MyCongestionsPanel = () => {
 
     axios.get(`/api/congestion/history`)
       .then(res => {
-        setCongestions(res.data);
+        setCongestions(res.data || []);
         setLoading(false);
       })
       .catch(err => {
@@ -23,6 +25,9 @@ const MyCongestionsPanel = () => {
         setLoading(false);
       });
   }, []);
+
+  const totalPages = Math.ceil(congestions.length / itemsPerPage);
+  const currentItems = congestions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const panelStyles = {
     container: { padding: '10px' },
@@ -45,7 +50,16 @@ const MyCongestionsPanel = () => {
       border: `1px solid ${status === '혼잡' ? '#FFCDCD' : status === '보통' ? '#FFD8A8' : '#C8E6C9'}`,
       display: 'inline-block'
     }),
-    time: { fontSize: '12px', color: '#999' }
+    time: { fontSize: '12px', color: '#999' },
+    pagination: { display: 'flex', justifyContent: 'center', marginTop: '30px', gap: '10px' },
+    pageButton: (isActive) => ({
+      width: '35px', height: '35px', borderRadius: '50%', cursor: 'pointer',
+      backgroundColor: isActive ? '#007bff' : 'white', color: isActive ? 'white' : '#555', border: '1px solid #ddd'
+    }),
+    navButton: (disabled) => ({
+      width: '35px', height: '35px', borderRadius: '50%', cursor: disabled ? 'not-allowed' : 'pointer',
+      backgroundColor: 'white', color: disabled ? '#ccc' : '#555', border: '1px solid #ddd', fontWeight: 'bold'
+    }),
   };
 
   if (loading) return <div style={{ textAlign: 'center', padding: '50px' }}>이력을 불러오는 중입니다...</div>;
@@ -61,25 +75,54 @@ const MyCongestionsPanel = () => {
           <p>아직 변경하신 혼잡도 이력이 없습니다.</p>
         </div>
       ) : (
-        <ul style={panelStyles.list}>
-          {congestions.map((item) => (
-            <li key={item.congIdx} style={panelStyles.item}>
-              <div>
-                <span style={panelStyles.storeName}>{item.restName}</span>
-                <span style={panelStyles.statusBadge(item.status)}>
-                  {item.status}
-                </span>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={panelStyles.time}>
-                  {item.createdAt ? new Date(item.createdAt).toLocaleString('ko-KR', {
-                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                  }) : '시간 정보 없음'}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul style={panelStyles.list}>
+            {currentItems.map((item) => (
+              <li key={item.congIdx} style={panelStyles.item}>
+                <div>
+                  <span style={panelStyles.storeName}>{item.restName}</span>
+                  <span style={panelStyles.statusBadge(item.status)}>
+                    {item.status}
+                  </span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={panelStyles.time}>
+                    {item.createdAt ? new Date(item.createdAt).toLocaleString('ko-KR', {
+                      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    }) : '시간 정보 없음'}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div style={panelStyles.pagination}>
+            <button
+              style={panelStyles.navButton(currentPage === 1)}
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+              disabled={currentPage === 1}
+              aria-label="이전 페이지"
+            >
+              {'<'}
+            </button>
+            {[...Array(Math.max(totalPages, 1))].map((_, i) => (
+              <button
+                key={i + 1}
+                style={panelStyles.pageButton(currentPage === i + 1)}
+                onClick={() => setCurrentPage(i + 1)}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              style={panelStyles.navButton(currentPage >= totalPages)}
+              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+              disabled={currentPage >= totalPages}
+              aria-label="다음 페이지"
+            >
+              {'>'}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

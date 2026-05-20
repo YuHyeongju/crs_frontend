@@ -29,8 +29,8 @@ function App() {
   };
 
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
         <div className="App">
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -58,8 +58,8 @@ function App() {
             <Route path="/restaurant-detail/:restaurantId" element={<RestaurantDetailPage />} />
           </Routes>
         </div>
-      </BrowserRouter>
-    </AuthProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
