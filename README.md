@@ -1,7 +1,7 @@
 # CRS (Congestion & Restaurant Service) — Frontend
 
 식당의 **실시간 혼잡도**와 **리뷰**를 카카오 지도 위에서 제공하는 서비스의 프론트엔드(React)입니다.
-지도에서 주변 식당을 탐색하고, 혼잡도를 확인·제보하며, 리뷰·즐겨찾기를 남길 수 있습니다.
+지도에서 주변 식당을 탐색하고, 혼잡도를 확인·제보하며, 리뷰·즐겨찾기를 남기고, 제보로 모은 **포인트로 쿠폰을 교환**할 수 있습니다.
 사용자 유형(일반 / 상인 / 관리자)에 따라 마이페이지와 기능이 분기됩니다.
 
 > 백엔드(Spring Boot)는 별도 저장소입니다. 이 앱은 개발 시 `http://localhost:8080`으로 API를 프록시합니다.
@@ -33,15 +33,15 @@ src/
 ├── components/
 │   ├── map/                # 카카오 지도, 현재 위치, 지도 컨트롤
 │   ├── congestion/         # 혼잡도 변경/이력 패널
-│   ├── reward/             # 리워드 패널
+│   ├── reward/             # 리워드/쿠폰 패널 (포인트·보유쿠폰·교환)
 │   └── ui/                 # Header, 회원탈퇴 모달 등 공용 UI
 └── pages/
     ├── home/               # 메인(지도 + 식당 목록)
     ├── auth/               # 로그인 / 유형선택 / 약관 / 회원가입(일반·상인·관리자)
     ├── restaurant/         # 식당 상세 + 탭(홈·메뉴·사진·리뷰)
     └── mypage/             # 마이페이지
-        ├── user/           # 일반: 내정보·즐겨찾기·내리뷰·내혼잡도제보
-        ├── merchant/       # 상인: 가게 등록·수정/삭제·혼잡도 관리·내정보
+        ├── user/           # 일반: 내정보·리워드·즐겨찾기·내리뷰·내혼잡도제보
+        ├── merchant/       # 상인: 가게 등록·수정/삭제·혼잡도 관리·쿠폰 관리·내정보
         └── admin/          # 관리자: 회원·가게·신고 관리
 ```
 
@@ -53,8 +53,9 @@ src/
 - **혼잡도 확인·제보** — 식당별 현재 혼잡도 조회 및 제보, 내 제보 이력 확인.
 - **리뷰** — 식당 상세에서 리뷰 조회/작성, 마이페이지에서 내 리뷰 페이징 조회·수정·삭제, 리뷰 신고.
 - **즐겨찾기** — 식당 즐겨찾기 토글 및 목록 관리.
+- **리워드 & 쿠폰** — 혼잡도 제보로 포인트 적립, 마이페이지 리워드 패널에서 보유 포인트 확인. 포인트로 가게 쿠폰을 교환하고 보유 쿠폰을 사용. 상인은 자기 가게 쿠폰을 등록·관리.
 - **3종 회원 + 마이페이지 분기** — 일반/상인/관리자별 회원가입·약관·마이페이지.
-  - 상인: 가게 등록(메뉴·편의시설·이미지), 수정/삭제, 혼잡도 관리
+  - 상인: 가게 등록(메뉴·편의시설·이미지), 수정/삭제, 혼잡도 관리, 쿠폰 등록/관리
   - 관리자: 가게 승인/거절, 회원 제재/탈퇴, 리뷰 신고 처리
 
 ---
@@ -73,13 +74,15 @@ src/
 | `/merchant/manage` | 상인: 가게 선택 → 수정/삭제 |
 | `/restaurant-detail/:restaurantId` | 식당 상세 (홈·메뉴·사진·리뷰 탭) |
 
+> 마이페이지의 리워드/쿠폰, 상인 쿠폰 관리는 별도 라우트가 아니라 `/mypage` 내부 패널 전환으로 동작합니다.
+
 ---
 
 ## 백엔드 연동
 
 - 모든 API 호출은 상대 경로(`/api/...`)를 사용하며, 개발 서버에서 `package.json`의 `proxy` 설정(`http://localhost:8080`)을 통해 백엔드로 전달됩니다.
 - 인증은 백엔드의 **HttpSession** 기반입니다. 로그인 성공 시 받은 `userIdx`/`role`을 `sessionStorage`에 저장하고, axios 인터셉터가 `401` 응답을 받으면 세션 만료로 간주해 로그인 페이지로 이동시킵니다.
-- 사용하는 주요 API 그룹: `/api/auth`, `/api/restaurants`, `/api/congestion`, `/api/reviews`, `/api/bookmarks`, `/api/users` · `/api/merchants` · `/api/admins`. 자세한 스펙은 백엔드 저장소 README 참고.
+- 사용하는 주요 API 그룹: `/api/auth`, `/api/restaurants`, `/api/congestion`, `/api/reviews`, `/api/bookmarks`, `/api/rewards`, `/api/coupons`, `/api/users` · `/api/merchants` · `/api/admins`. 자세한 스펙은 백엔드 저장소 README 참고.
 
 ---
 
@@ -110,16 +113,13 @@ npm test         # 테스트 러너
 
 ## 🚧 아직 정리/개선이 필요한 부분
 
-저장소를 점검하며 발견한 항목입니다. (우선순위 순)
+저장소를 점검하며 발견한 항목입니다.
 
-1. **`package.json`의 깨진 의존성 버전 (설치 차단 — 시급)**
-   `"react-scripts": "^5.0.1npm ls react-scriptsnpm ls react-scripts"` 로 되어 있어, 깨끗한 환경에서 `npm install`이 실패합니다. 셸 명령이 버전 문자열에 잘못 붙은 것으로 보이며 `"react-scripts": "^5.0.1"`로 고쳐야 합니다.
-2. **`.env.example` 부재** — `REACT_APP_KAKAO_MAPS_API_KEY`가 필수인데 예시 파일이 없어 신규 셋업 시 어떤 키가 필요한지 알기 어려움. (이번에 템플릿을 추가했습니다.)
-3. **인증 엔드포인트 경로 불일치** — `AuthContext`의 401 인터셉터가 `/api/users/login`·`/api/users/signup`을 예외 처리하지만, 실제 경로는 `/api/auth/login`·`/api/auth/register/*`. 해당 조건이 동작하지 않으므로 경로를 맞춰야 함.
-4. **리워드 기능 프론트/백 불일치** — 프론트에 `RewardPanel`이 있으나 백엔드에는 리워드 API가 없음. 한쪽을 맞춰 구현하거나 임시 비활성화 정리 필요.
-5. **CRA 기반 안내 문서 분리** — 기존 Create React App 기본 README는 본 문서로 대체됨. 빌드 도구 관련 상세는 [CRA 공식 문서](https://facebook.github.io/create-react-app/docs/getting-started) 참고.
+1. **인증 엔드포인트 경로 불일치** — `AuthContext`의 401 인터셉터가 `/api/users/login`·`/api/users/signup`을 예외 처리하지만, 실제 경로는 `/api/auth/login`·`/api/auth/register/*`. 해당 조건이 동작하지 않으므로 경로를 맞춰야 함.
+2. **세션 / 명시적 userIdx 혼용** — 일부 호출은 세션 쿠키(`withCredentials`)에, 일부는 `userIdx`를 직접 전달해 의존(리뷰·리워드·쿠폰 등). 백엔드 인증 정리와 함께 한쪽으로 통일 권장.
+3. **ESLint 경고 잔존** — `MyReviewsPanel.js`의 미사용 변수(`totalElements`) 등 사소한 경고. 정리 권장.
 
 ---
 
 ## 관련 저장소
-- **Backend** — Spring Boot + MySQL API 서버 (별도 저장소). 식당/혼잡도/리뷰/회원 API 제공.
+- **Backend** — Spring Boot + MySQL API 서버 (별도 저장소). 식당/혼잡도/리뷰/회원/리워드/쿠폰 API 제공.
