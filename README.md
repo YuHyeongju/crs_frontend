@@ -1,70 +1,125 @@
-# Getting Started with Create React App
+# CRS (Congestion & Restaurant Service) — Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+식당의 **실시간 혼잡도**와 **리뷰**를 카카오 지도 위에서 제공하는 서비스의 프론트엔드(React)입니다.
+지도에서 주변 식당을 탐색하고, 혼잡도를 확인·제보하며, 리뷰·즐겨찾기를 남길 수 있습니다.
+사용자 유형(일반 / 상인 / 관리자)에 따라 마이페이지와 기능이 분기됩니다.
 
-## Available Scripts
+> 백엔드(Spring Boot)는 별도 저장소입니다. 이 앱은 개발 시 `http://localhost:8080`으로 API를 프록시합니다.
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## 기술 스택
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+| 구분 | 사용 기술 |
+| :--- | :--- |
+| Library | React 19 |
+| Bootstrapping | Create React App (react-scripts 5) |
+| 라우팅 | react-router-dom v7 |
+| HTTP | axios (응답 인터셉터로 401 세션 만료 처리) |
+| 지도 | Kakao Maps JavaScript SDK (`services` 라이브러리 — 장소 검색) |
+| UI | react-icons, react-modal |
+| 상태 관리 | React Context (`AuthContext`) + `sessionStorage` |
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## 폴더 구조
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```
+src/
+├── App.js                  # 라우트 정의
+├── index.js                # 진입점
+├── context/
+│   └── AuthContext.js      # 로그인 상태(역할/userIdx) + 401 인터셉터
+├── components/
+│   ├── map/                # 카카오 지도, 현재 위치, 지도 컨트롤
+│   ├── congestion/         # 혼잡도 변경/이력 패널
+│   ├── reward/             # 리워드 패널
+│   └── ui/                 # Header, 회원탈퇴 모달 등 공용 UI
+└── pages/
+    ├── home/               # 메인(지도 + 식당 목록)
+    ├── auth/               # 로그인 / 유형선택 / 약관 / 회원가입(일반·상인·관리자)
+    ├── restaurant/         # 식당 상세 + 탭(홈·메뉴·사진·리뷰)
+    └── mypage/             # 마이페이지
+        ├── user/           # 일반: 내정보·즐겨찾기·내리뷰·내혼잡도제보
+        ├── merchant/       # 상인: 가게 등록·수정/삭제·혼잡도 관리·내정보
+        └── admin/          # 관리자: 회원·가게·신고 관리
+```
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## 주요 기능
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- **지도 기반 탐색** — 카카오 지도에 주변 식당 핀 표시, 현재 위치 이동, 지도 타입 전환. 식당별 평점/리뷰수·혼잡도를 일괄 조회(`bulkDetails`, `bulkStatus`)로 효율 로딩.
+- **혼잡도 확인·제보** — 식당별 현재 혼잡도 조회 및 제보, 내 제보 이력 확인.
+- **리뷰** — 식당 상세에서 리뷰 조회/작성, 마이페이지에서 내 리뷰 페이징 조회·수정·삭제, 리뷰 신고.
+- **즐겨찾기** — 식당 즐겨찾기 토글 및 목록 관리.
+- **3종 회원 + 마이페이지 분기** — 일반/상인/관리자별 회원가입·약관·마이페이지.
+  - 상인: 가게 등록(메뉴·편의시설·이미지), 수정/삭제, 혼잡도 관리
+  - 관리자: 가게 승인/거절, 회원 제재/탈퇴, 리뷰 신고 처리
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## 라우트
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+| Path | 화면 |
+| :--- | :--- |
+| `/` | 메인 (지도 + 식당 목록) |
+| `/login` | 로그인 |
+| `/usertypeselection` | 회원 유형 선택 |
+| `/terms/general` `/terms/merchant` `/terms/admin` | 약관 동의 |
+| `/signup/general` `/signup/merchant` `/signup/admin` | 회원가입 |
+| `/mypage` | 마이페이지 (역할에 따라 하위 패널 분기) |
+| `/merchant/register` | 상인: 가게 등록 |
+| `/merchant/manage` | 상인: 가게 선택 → 수정/삭제 |
+| `/restaurant-detail/:restaurantId` | 식당 상세 (홈·메뉴·사진·리뷰 탭) |
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## 백엔드 연동
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- 모든 API 호출은 상대 경로(`/api/...`)를 사용하며, 개발 서버에서 `package.json`의 `proxy` 설정(`http://localhost:8080`)을 통해 백엔드로 전달됩니다.
+- 인증은 백엔드의 **HttpSession** 기반입니다. 로그인 성공 시 받은 `userIdx`/`role`을 `sessionStorage`에 저장하고, axios 인터셉터가 `401` 응답을 받으면 세션 만료로 간주해 로그인 페이지로 이동시킵니다.
+- 사용하는 주요 API 그룹: `/api/auth`, `/api/restaurants`, `/api/congestion`, `/api/reviews`, `/api/bookmarks`, `/api/users` · `/api/merchants` · `/api/admins`. 자세한 스펙은 백엔드 저장소 README 참고.
 
-## Learn More
+---
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 로컬 실행 방법
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 1. 사전 준비
+- Node.js 18+ 권장
+- **카카오 지도 JavaScript 키** ([Kakao Developers](https://developers.kakao.com)에서 발급, 플랫폼에 `http://localhost:3000` 등록)
+- 백엔드 서버가 `http://localhost:8080`에서 실행 중이어야 API가 동작합니다.
 
-### Code Splitting
+### 2. 환경변수 설정
+프로젝트 루트에 `.env` 파일을 만들고 카카오 키를 넣습니다. (`.env.example` 참고, `.env`는 git에 커밋되지 않습니다.)
+```
+REACT_APP_KAKAO_MAPS_API_KEY=발급받은_자바스크립트_키
+```
+> 이 값은 `public/index.html`의 카카오 SDK `<script>` 태그에 주입됩니다. 키가 없으면 지도가 로드되지 않습니다.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### 3. 설치 & 실행
+```bash
+npm install
+npm start        # http://localhost:3000 개발 서버
 
-### Analyzing the Bundle Size
+npm run build    # 프로덕션 빌드 (build/)
+npm test         # 테스트 러너
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+## 🚧 아직 정리/개선이 필요한 부분
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+저장소를 점검하며 발견한 항목입니다. (우선순위 순)
 
-### Advanced Configuration
+1. **`package.json`의 깨진 의존성 버전 (설치 차단 — 시급)**
+   `"react-scripts": "^5.0.1npm ls react-scriptsnpm ls react-scripts"` 로 되어 있어, 깨끗한 환경에서 `npm install`이 실패합니다. 셸 명령이 버전 문자열에 잘못 붙은 것으로 보이며 `"react-scripts": "^5.0.1"`로 고쳐야 합니다.
+2. **`.env.example` 부재** — `REACT_APP_KAKAO_MAPS_API_KEY`가 필수인데 예시 파일이 없어 신규 셋업 시 어떤 키가 필요한지 알기 어려움. (이번에 템플릿을 추가했습니다.)
+3. **인증 엔드포인트 경로 불일치** — `AuthContext`의 401 인터셉터가 `/api/users/login`·`/api/users/signup`을 예외 처리하지만, 실제 경로는 `/api/auth/login`·`/api/auth/register/*`. 해당 조건이 동작하지 않으므로 경로를 맞춰야 함.
+4. **리워드 기능 프론트/백 불일치** — 프론트에 `RewardPanel`이 있으나 백엔드에는 리워드 API가 없음. 한쪽을 맞춰 구현하거나 임시 비활성화 정리 필요.
+5. **CRA 기반 안내 문서 분리** — 기존 Create React App 기본 README는 본 문서로 대체됨. 빌드 도구 관련 상세는 [CRA 공식 문서](https://facebook.github.io/create-react-app/docs/getting-started) 참고.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+---
 
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 관련 저장소
+- **Backend** — Spring Boot + MySQL API 서버 (별도 저장소). 식당/혼잡도/리뷰/회원 API 제공.
