@@ -1,24 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import axios from 'axios';
 import { FaTicketAlt, FaGift } from 'react-icons/fa';
+import { AuthContext } from '../../context/AuthContext';
 
 const RewardPanel = () => {
-  const [coupons, setCoupons] = useState([
-    {
-      id: 1,
-      title: '5,000원 할인 쿠폰',
-      expiry: '2025.12.31',
-      details: '결제 시 5,000원 할인 (20,000원 이상 구매 시)',
-    },
-    {
-      id: 2,
-      title: '아메리카노 1잔 무료 쿠폰',
-      expiry: '2025.10.31',
-      details: '카페 방문 시 아메리카노 1잔 무료 제공',
-    },
-  ]);
-  const [points] = useState(15000); // 나중에 사용하기 위해 언더바 사용
+  const { userIdx } = useContext(AuthContext);
+  const [points, setPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
+  // 쿠폰은 아직 백엔드 미구현 (1단계는 포인트만) — 빈 목록으로 정직하게 표시
+  const [coupons, setCoupons] = useState([]);
 
-  // 쿠폰을 사용했을 때 목록에서 제거하는 기능
+  // 혼잡도 제보로 적립된 보유 포인트 조회
+  useEffect(() => {
+    if (!userIdx) {
+      setLoading(false);
+      return;
+    }
+    axios.get(`/api/rewards/balance/${userIdx}`)
+      .then(res => {
+        setPoints(res.data?.balance ?? 0);
+      })
+      .catch(err => {
+        console.error('포인트 조회 실패:', err);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [userIdx]);
+
+  // 쿠폰을 사용했을 때 목록에서 제거하는 기능 (쿠폰 기능 도입 시 사용)
   const handleUseCoupon = (couponId) => {
     const updatedCoupons = coupons.filter(coupon => coupon.id !== couponId);
     setCoupons(updatedCoupons);
@@ -134,8 +144,11 @@ const RewardPanel = () => {
         </div>
         <div style={styles.pointsBox}>
           <div style={styles.pointsText}>총 포인트</div>
-          <div style={styles.pointsValue}>{points.toLocaleString()}P</div>
+          <div style={styles.pointsValue}>{loading ? '...' : `${points.toLocaleString()}P`}</div>
         </div>
+        <p style={{ marginTop: '12px', fontSize: '13px', color: '#888' }}>
+          혼잡도를 제보하면 포인트가 적립돼요. (같은 가게는 30분에 한 번)
+        </p>
       </div>
 
       <div style={styles.section}>
