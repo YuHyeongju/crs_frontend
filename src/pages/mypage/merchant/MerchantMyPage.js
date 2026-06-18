@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FaChevronRight, FaUser, FaStore, FaHistory, FaGift, FaPlus, FaMapMarkerAlt } from 'react-icons/fa';
+import { FaChevronRight, FaUser, FaStore, FaHistory, FaGift, FaPlus, FaMapMarkerAlt, FaTicketAlt } from 'react-icons/fa';
 import MerchantMyInfoPanel from '../merchant/MerchantMyInfoPanel';
 import MerchantRegisterPanel from '../merchant/MerchantRegisterPanel';
 import MerchantEditDeletePanel from '../merchant/MerchantEditDeletePanel';
 import MerchantCongestionPanel from '../merchant/MerchantCongestionPanel';
 import MerchantSelectPanel from '../merchant/MerchantSelectPanel';          // 식당 선택 패널
+import MerchantCouponPanel from '../merchant/MerchantCouponPanel';          // 쿠폰 관리 패널
 import RewardPanel from '../../../components/reward/RewardPanel';
 
 const MerchantMyPage = () => {
@@ -114,6 +115,8 @@ const MerchantMyPage = () => {
         ) : (
           <MerchantSelectPanel onSelectStore={setSelectedStoreId} />
         );
+      case 'coupon':
+        return <MerchantCouponPanel />;
       default:
         return <MerchantMyInfoPanel />;
     }
@@ -149,6 +152,10 @@ const MerchantMyPage = () => {
           <div style={styles.menuItem(activePanel === 'manage')} onClick={() => handleMenuClick('manage')}>
             <div style={{ display: 'flex', alignItems: 'center' }}><FaStore style={styles.menuIcon(activePanel === 'manage')} /><span>식당 수정 / 삭제</span></div>
             <FaChevronRight style={{ color: activePanel === 'manage' ? '#007bff' : '#ccc' }} />
+          </div>
+          <div style={styles.menuItem(activePanel === 'coupon')} onClick={() => handleMenuClick('coupon')}>
+            <div style={{ display: 'flex', alignItems: 'center' }}><FaTicketAlt style={styles.menuIcon(activePanel === 'coupon')} /><span>쿠폰 관리</span></div>
+            <FaChevronRight style={{ color: activePanel === 'coupon' ? '#007bff' : '#ccc' }} />
           </div>
         </div>
 
