@@ -4,7 +4,6 @@ import Header from '../../components/ui/Header';
 import RestaurantListPanel from './RestaurantListPanel';
 import MapControls from '../../components/map/MapControls';
 import GoToMyLocationButton from '../../components/map/GoToMyLocationButton';
-import LocationPanel from '../../components/map/LocationPanel';
 import CongestionChangePanel from '../../components/congestion/CongestionChangePanel';
 import { AuthContext } from '../../context/AuthContext';
 import axios from 'axios';
@@ -21,7 +20,6 @@ const HomePage = () => {
     const [mapInstance, setMapInstance] = useState(null);
     const [currentUserCoords, setCurrentUserCoords] = useState(null);
     const [showRestaurantPanel, setShowRestaurantPanel] = useState(true);
-    const [showLocationPanel, setShowLocationPanel] = useState(false);
     const [restaurantList, setRestaurantList] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSearchMode, setIsSearchMode] = useState(false);
@@ -40,6 +38,54 @@ const HomePage = () => {
     const userLocationBlinkIntervalRef = useRef(null);
     const searchAndDisplayRestaurantsRef = useRef();
     const mapInitializedRef = useRef(false);
+
+    const normalizeMerchantPin = useCallback((pin) => {
+        const isDbOnly = !pin.kakaoId;
+        const id = isDbOnly ? `db-${pin.restIdx}` : String(pin.kakaoId);
+
+        return {
+            id,
+            kakaoId: pin.kakaoId,
+            restIdx: pin.restIdx,
+            isDbOnly,
+            isMerchantStore: true,
+            place_name: pin.restName,
+            road_address_name: pin.restAddress,
+            address_name: pin.restAddress,
+            phone: pin.restTel || '',
+            x: String(pin.longitude),
+            y: String(pin.latitude),
+            averageRating: pin.averageRating || 0,
+            reviewCount: pin.reviewCount || 0,
+            ownerUserIdx: pin.ownerUserIdx ?? null,
+            category_name: isDbOnly ? '등록 가게' : '카카오 연동 가게',
+            congestion: '혼잡도 이력 없음'
+        };
+    }, []);
+
+    const fetchMerchantPlaces = useCallback(async ({ keyword = '', bounds = null, existingKakaoIds = new Set() } = {}) => {
+        try {
+            const response = await axios.get('/api/restaurants/merchant-pins');
+            const normalizedKeyword = keyword.trim().toLowerCase();
+
+            return (response.data || [])
+                .filter(pin => pin.latitude != null && pin.longitude != null)
+                .filter(pin => {
+                    if (pin.kakaoId && existingKakaoIds.has(String(pin.kakaoId))) return false;
+
+                    if (normalizedKeyword) {
+                        const target = `${pin.restName || ''} ${pin.restAddress || ''}`.toLowerCase();
+                        return target.includes(normalizedKeyword);
+                    }
+
+                    return true;
+                })
+                .map(normalizeMerchantPin);
+        } catch (error) {
+            console.warn('merchant-pins 조회 실패:', error);
+            return [];
+        }
+    }, [normalizeMerchantPin]);
 
     const handleLogout = useCallback(() => {
         logout();
@@ -64,7 +110,7 @@ const HomePage = () => {
 
             await axios.post('/api/bookmarks/toggle', {
                 userIdx: userIdx,
-                kakaoId: restaurant.id,
+                kakaoId: restaurant.kakaoId || restaurant.id,
                 restName: restaurant.place_name,
                 restAddress: restaurant.road_address_name || restaurant.address_name,
                 restTel: restaurant.phone
@@ -72,10 +118,11 @@ const HomePage = () => {
 
 
             setMyBookmarkIds((prev) => {
-                const isExist = prev.includes(restaurant.id);
+                const bookmarkId = restaurant.kakaoId || restaurant.id;
+                const isExist = prev.includes(bookmarkId);
                 return isExist
-                    ? prev.filter(id => String(id) !== restaurant.id)
-                    : [...prev, restaurant.id];
+                    ? prev.filter(id => String(id) !== bookmarkId)
+                    : [...prev, bookmarkId];
             });
 
         } catch (error) {
@@ -110,17 +157,34 @@ const HomePage = () => {
     // 1. 백엔드에서 실제 혼잡도 데이터를 가져와 리스트에 적용하는 함수 (추가됨)
     const fetchAndApplyCongestion = useCallback(async (currentList) => {
         try {
-            const ids = currentList.map(item => item.id);
-            if (ids.length === 0) return;
+            const kakaoIds = currentList
+                .map(item => item.kakaoId || (!item.isDbOnly ? item.id : null))
+                .filter(Boolean);
+            const dbOnlyItems = currentList.filter(item => item.isDbOnly && item.restIdx);
+            if (kakaoIds.length === 0 && dbOnlyItems.length === 0) return;
 
-            // 백엔드 API 호출 (실제 컨트롤러 경로: /api/congestion/bulkStatus)
-            const response = await axios.post('/api/congestion/bulkStatus', ids);
-            const realData = response.data; // 형식: { "카카오ID": "여유", ... }
+            let realData = {};
+            if (kakaoIds.length > 0) {
+                const response = await axios.post('/api/congestion/bulkStatus', kakaoIds);
+                realData = response.data || {};
+            }
+
+            const dbCongestionPairs = await Promise.all(dbOnlyItems.map(async (item) => {
+                try {
+                    const response = await axios.get(`/api/congestion/restIdx/${item.restIdx}`);
+                    return [item.id, response.data];
+                } catch (error) {
+                    console.warn('DB 식당 혼잡도 조회 실패:', item.restIdx, error);
+                    return [item.id, null];
+                }
+            }));
+            const dbCongestionMap = Object.fromEntries(dbCongestionPairs);
 
             setRestaurantList(prev => prev.map(item => ({
                 ...item,
-                // DB 데이터가 있으면 적용, 없으면 '정보 없음' 유지
-                congestion: realData[item.id] || '혼잡도 이력 없음'
+                congestion: item.isDbOnly
+                    ? (dbCongestionMap[item.id] || '혼잡도 이력 없음')
+                    : (realData[item.kakaoId || item.id] || '혼잡도 이력 없음')
             })));
         } catch (error) {
             console.error("DB 혼잡도 로드 실패:", error);
@@ -178,10 +242,9 @@ const HomePage = () => {
     }, [mapInstance]);
 
     const createAndDisplayMarker = useCallback((place, map, index, onMarkerClick) => {
-        // 1. 마커의 위치 좌표 객체 생성
         const position = new window.kakao.maps.LatLng(place.y, place.x);
 
-        // 마커 아이콘(SVG) 설정
+        const isMerchant = !!place.isMerchantStore;
         const markerSvg = `<svg width="30" height="40" viewBox="0 0 30 40" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 0C6.71573 0 0 6.71573 0 15C0 25 15 40 15 40C15 40 30 25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#007bff"/><circle cx="15" cy="15" r="10" fill="white"/><text x="15" y="15" font-family="Arial" font-size="12" font-weight="bold" fill="#007bff" text-anchor="middle" alignment-baseline="middle">${index}</text></svg>`;
         const markerImage = new window.kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(markerSvg)}`, new window.kakao.maps.Size(30, 40));
 
@@ -208,7 +271,6 @@ const HomePage = () => {
                     ? place.congestion
                     : '혼잡도 이력 없음';
 
-                // 2. 가공된 displayCongestion 변수를 사용하여 HTML 생성
                 const content = `
             <div style="padding:15px; font-size:13px; min-width:220px; width:auto; line-height: 1.5; background: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
                 <strong style="font-size:15px; color:#007bff; display:block; margin-bottom:5px;">
@@ -298,13 +360,18 @@ const HomePage = () => {
                     return merged;
                 });
 
-                setRestaurantList(newList);
-
                 if (setMapBounds && !bounds.isEmpty() && mapInstance) {
                     mapInstance.setBounds(bounds);
                 }
 
-                fetchAndApplyCongestion(newList);
+                const merchantPins = await fetchMerchantPlaces({
+                    bounds: mapInstance.getBounds(),
+                    existingKakaoIds: new Set(ids),
+                    keyword: searchType === 'keyword' ? keyword : ''
+                });
+                const fullList = [...newList, ...(merchantPins || [])];
+                setRestaurantList(fullList);
+                fetchAndApplyCongestion(fullList);
 
             } else if (status === window.kakao.maps.services.Status.ZERO_RESULT) {
                 setRestaurantList([]);
@@ -324,7 +391,7 @@ const HomePage = () => {
             : { location: centerLatLng, radius: 2000 };
         if (searchType === 'keyword') ps.keywordSearch(keyword, callback, options);
         else ps.categorySearch('FD6', callback, options);
-    }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker, handleListItemClick, fetchAndApplyCongestion]);
+    }, [mapInstance, removeRestaurantMarkers, createAndDisplayMarker, handleListItemClick, fetchAndApplyCongestion, fetchMerchantPlaces]);
 
     useEffect(() => { searchAndDisplayRestaurantsRef.current = searchAndDisplayRestaurants; }, [searchAndDisplayRestaurants]);
 
@@ -450,12 +517,18 @@ const HomePage = () => {
                         onBookmarkToggle={handleBookmarkToggle}
 
                         // 2. 상세보기로 갈 때 찜 여부 상태도 같이 들고 가기 (선택사항이지만 추천!)
-                        onRestaurantClick={(r) => navigate(`/restaurant-detail/${r.id}`, {
-                            state: {
-                                restaurantData: r,
-                                isBookmarked: myBookmarkIds.includes(Number(r.id))
+                        onRestaurantClick={(r) => {
+                            if (r.isDbOnly) {
+                                alert('카카오맵에 등록되지 않은 가게는 상세 페이지를 준비 중입니다.');
+                                return;
                             }
-                        })}
+                            navigate(`/restaurant-detail/${r.id}`, {
+                                state: {
+                                    restaurantData: r,
+                                    isBookmarked: myBookmarkIds.includes(Number(r.id))
+                                }
+                            });
+                        }}
 
                         isLoggedIn={isLoggedIn}
                         onCongestionChangeClick={async (r) => {
@@ -486,8 +559,6 @@ const HomePage = () => {
                             handleClearSearch();
                         }}
                     />
-                    <button onClick={() => setShowLocationPanel(!showLocationPanel)} style={{ position: 'fixed', top: '120px', right: '10px', zIndex: 10, padding: '10px', background: showLocationPanel ? '#007bff' : 'white', borderRadius: '5px', border: '1px solid #ccc', cursor: 'pointer' }}>내 위치 정보</button>
-                    <LocationPanel currentUserCoords={currentUserCoords} showLocationPanel={showLocationPanel} setShowLocationPanel={setShowLocationPanel} handleLocationUpdate={setCurrentUserCoords} />
                 </>
             )}
         </div>

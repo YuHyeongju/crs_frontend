@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { FaStore, FaPhone, FaMapMarkerAlt, FaClock, FaTimesCircle, FaCamera, FaCheckSquare } from 'react-icons/fa';
+import { FaStore, FaPhone, FaMapMarkerAlt, FaClock, FaTimesCircle, FaCamera, FaCheckSquare, FaSearch } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 
 const MerchantRegisterPanel = () => {
@@ -12,6 +12,8 @@ const MerchantRegisterPanel = () => {
     restTel: '',
     restAddress: '',
     restBusiHours: '',
+    latitude: null,
+    longitude: null,
   });
 
   const [facilities, setFacilities] = useState({
@@ -32,9 +34,49 @@ const MerchantRegisterPanel = () => {
     imagePreviewUrl: ''
   });
 
+  // 카카오 장소 검색 상태
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setStoreInfo(prev => ({ ...prev, [name]: value }));
+  };
+
+  // 카카오에서 내 가게 검색 (지도와 동일한 services.Places 사용)
+  const handleSearch = () => {
+    if (!searchKeyword.trim()) return;
+    if (!window.kakao || !window.kakao.maps) {
+      alert('카카오 지도 SDK가 아직 로드되지 않았습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    window.kakao.maps.load(() => {
+      const ps = new window.kakao.maps.services.Places();
+      ps.keywordSearch(searchKeyword, (data, status) => {
+        if (status === window.kakao.maps.services.Status.OK) {
+          setSearchResults(data);
+        } else {
+          setSearchResults([]);
+          alert('검색 결과가 없습니다.');
+        }
+      });
+    });
+  };
+
+  // 검색 결과에서 내 가게 선택 → 카카오 정보 자동 채움 (kakaoId 포함)
+  // kakaoId가 채워져야 백엔드가 지도에 이미 있는 가게(restIdx)를 찾아 claim 함
+  const handleSelectPlace = (place) => {
+    setStoreInfo(prev => ({
+      ...prev,
+      kakaoId: place.id,
+      restName: place.place_name,
+      restTel: place.phone || '',
+      restAddress: place.road_address_name || place.address_name || '',
+      latitude: parseFloat(place.y),
+      longitude: parseFloat(place.x),
+    }));
+    setSearchResults([]);
+    setSearchKeyword('');
   };
 
   const handleFacilityChange = (e) => {
@@ -66,10 +108,32 @@ const MerchantRegisterPanel = () => {
     setMenuList(menuList.filter((_, i) => i !== index));
   };
 
+  const geocodeAddress = (address) => new Promise((resolve) => {
+    if (!window.kakao?.maps?.services) { resolve({ lat: null, lng: null }); return; }
+    const geocoder = new window.kakao.maps.services.Geocoder();
+    geocoder.addressSearch(address, (result, status) => {
+      if (status === window.kakao.maps.services.Status.OK && result.length > 0) {
+        resolve({ lat: parseFloat(result[0].y), lng: parseFloat(result[0].x) });
+      } else {
+        resolve({ lat: null, lng: null });
+      }
+    });
+  });
+
   const handleRegisterClick = async () => {
     if (!storeInfo.restName) {
       alert("식당 이름을 입력해주세요.");
       return;
+    }
+
+    let lat = storeInfo.latitude;
+    let lng = storeInfo.longitude;
+
+    // 카카오 검색 없이 직접 입력한 경우 주소로 좌표 변환 시도
+    if ((lat === null || lng === null) && storeInfo.restAddress) {
+      const coords = await geocodeAddress(storeInfo.restAddress);
+      lat = coords.lat;
+      lng = coords.lng;
     }
 
     const formData = new FormData();
@@ -80,6 +144,8 @@ const MerchantRegisterPanel = () => {
       restTel: storeInfo.restTel,
       restAddress: storeInfo.restAddress,
       restBusiHours: storeInfo.restBusiHours,
+      latitude: lat,
+      longitude: lng,
       facilities: facilities,
       menulist: menuList.map(m => ({
         menuName: m.name,
@@ -113,7 +179,8 @@ const MerchantRegisterPanel = () => {
       }
     } catch (error) {
       console.error("등록 실패:", error);
-      alert("등록 중 오류가 발생했습니다.");
+      // 백엔드 메시지(예: "이미 다른 사업자가 등록한 가게입니다.")를 그대로 노출
+      alert(error.response?.data || "등록 중 오류가 발생했습니다.");
     }
   };
 
@@ -139,6 +206,46 @@ const MerchantRegisterPanel = () => {
     <div style={styles.container}>
       <h2 style={styles.title}>내 식당 등록</h2>
 
+      {/* 카카오 장소 검색 섹션 — 지도에 이미 뜨는 내 가게를 찾아 연결(claim) */}
+      <div style={styles.section}>
+        <h4 style={{ marginBottom: '10px' }}><FaSearch style={styles.icon} /> 카카오에서 내 가게 찾기</h4>
+        <div style={{ fontSize: '13px', color: '#666', marginBottom: '10px', lineHeight: '1.6', backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '8px' }}>
+          <b>이미 카카오맵에 등록된 가게</b>라면 검색해서 선택해 주세요. 기존에 쌓인 리뷰·혼잡도가 그대로 이어집니다.<br/>
+          <b>신규 창업 등 카카오에 없는 가게</b>라면 이 단계를 건너뛰고 아래 기본 정보를 직접 입력해 주세요.
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <input
+            value={searchKeyword}
+            onChange={(e) => setSearchKeyword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSearch(); } }}
+            placeholder="내 가게 이름 검색 (예: 김밥천국 강남점)"
+            style={styles.input}
+          />
+          <button type="button" onClick={handleSearch} style={styles.addBtn}>검색</button>
+        </div>
+
+        {searchResults.length > 0 && (
+          <div style={{ marginTop: '12px', maxHeight: '220px', overflowY: 'auto', border: '1px solid #eee', borderRadius: '8px' }}>
+            {searchResults.map((place) => (
+              <div
+                key={place.id}
+                onClick={() => handleSelectPlace(place)}
+                style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', cursor: 'pointer' }}
+              >
+                <div style={{ fontWeight: 'bold' }}>{place.place_name}</div>
+                <div style={{ fontSize: '12px', color: '#888' }}>{place.road_address_name || place.address_name}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {storeInfo.kakaoId && (
+          <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#e6f5ff', borderRadius: '8px', fontSize: '13px', color: '#007bff' }}>
+            ✓ 선택된 가게: <b>{storeInfo.restName}</b> — 카카오 연결됨
+          </div>
+        )}
+      </div>
+
       {/* 기본 정보 섹션 */}
       <div style={styles.section}>
         <div style={styles.formGroup}><FaStore style={styles.icon} /><input name="restName" value={storeInfo.restName} onChange={handleInputChange} placeholder="식당 이름 (필수)" style={styles.input} /></div>
@@ -153,7 +260,7 @@ const MerchantRegisterPanel = () => {
         <div style={styles.facilityGrid}>
           {Object.keys(facilities).map(key => (
             <label key={key} style={styles.checkboxLabel}>
-              <input type="checkbox" name={key} checked={facilities[key]} onChange={handleFacilityChange} /> 
+              <input type="checkbox" name={key} checked={facilities[key]} onChange={handleFacilityChange} />
               {key === 'wifi' ? '와이파이' : key === 'restRoom' ? '화장실' : key === 'parkingAvailable' ? '주차 가능' : key === 'packingPossible' ? '포장 가능' : key === 'kakaoPay' ? '카카오페이' : key === 'samsungPay' ? '삼성페이' : '키오스크'}
             </label>
           ))}
@@ -163,7 +270,7 @@ const MerchantRegisterPanel = () => {
       {/* 메뉴 리스트 섹션 */}
       <div style={styles.section}>
         <h4 style={{ marginBottom: '15px' }}>메뉴 및 사진 등록</h4>
-        
+
         {/* 이미 추가된 메뉴 목록 */}
         {menuList.map((m, i) => (
           <div key={i} style={styles.menuItem}>
@@ -177,32 +284,32 @@ const MerchantRegisterPanel = () => {
 
         {/* 새 메뉴 입력 영역 */}
         <div style={{ marginTop: '20px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-          
+
           {/* 🌟 사진 선택 시 즉시 나타나는 미리보기 */}
           {newMenu.imagePreviewUrl && (
             <div style={styles.previewContainer}>
               <img src={newMenu.imagePreviewUrl} alt="preview" style={styles.menuImg} />
-              <FaTimesCircle 
-                style={styles.removePreviewIcon} 
+              <FaTimesCircle
+                style={styles.removePreviewIcon}
                 onClick={() => setNewMenu({...newMenu, imageFile: null, imagePreviewUrl: ''})}
               />
             </div>
           )}
 
-          <input 
-            placeholder="메뉴명" 
-            value={newMenu.name} 
-            onChange={(e) => setNewMenu({ ...newMenu, name: e.target.value })} 
-            style={{ ...styles.input, minWidth: '120px' }} 
+          <input
+            placeholder="메뉴명"
+            value={newMenu.name}
+            onChange={(e) => setNewMenu({ ...newMenu, name: e.target.value })}
+            style={{ ...styles.input, minWidth: '120px' }}
           />
-          <input 
-            placeholder="가격" 
-            type="number" 
-            value={newMenu.price} 
-            onChange={(e) => setNewMenu({ ...newMenu, price: e.target.value })} 
-            style={{ ...styles.input, maxWidth: '100px' }} 
+          <input
+            placeholder="가격"
+            type="number"
+            value={newMenu.price}
+            onChange={(e) => setNewMenu({ ...newMenu, price: e.target.value })}
+            style={{ ...styles.input, maxWidth: '100px' }}
           />
-          
+
           {/* 사진 선택 버튼 (label 내부 input 구조로 클릭 오류 해결) */}
           <label style={styles.fileLabel}>
             <FaCamera />
@@ -214,7 +321,7 @@ const MerchantRegisterPanel = () => {
               style={{ display: 'none' }}
             />
           </label>
-          
+
           <button onClick={handleAddMenu} style={styles.addBtn}>메뉴 추가</button>
         </div>
       </div>
