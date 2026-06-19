@@ -108,20 +108,17 @@ const HomePage = () => {
 
         try {
 
-            await axios.post('/api/bookmarks/toggle', {
-                userIdx: userIdx,
-                kakaoId: restaurant.kakaoId || restaurant.id,
-                restName: restaurant.place_name,
-                restAddress: restaurant.road_address_name || restaurant.address_name,
-                restTel: restaurant.phone
-            });
+            const payload = restaurant.isDbOnly
+                ? { userIdx, restIdx: restaurant.restIdx, restName: restaurant.place_name }
+                : { userIdx, kakaoId: restaurant.kakaoId || restaurant.id, restName: restaurant.place_name, restAddress: restaurant.road_address_name || restaurant.address_name, restTel: restaurant.phone };
 
+            await axios.post('/api/bookmarks/toggle', payload);
 
             setMyBookmarkIds((prev) => {
-                const bookmarkId = restaurant.kakaoId || restaurant.id;
+                const bookmarkId = restaurant.isDbOnly ? `db-${restaurant.restIdx}` : (restaurant.kakaoId || restaurant.id);
                 const isExist = prev.includes(bookmarkId);
                 return isExist
-                    ? prev.filter(id => String(id) !== bookmarkId)
+                    ? prev.filter(id => String(id) !== String(bookmarkId))
                     : [...prev, bookmarkId];
             });
 
@@ -518,14 +515,11 @@ const HomePage = () => {
 
                         // 2. 상세보기로 갈 때 찜 여부 상태도 같이 들고 가기 (선택사항이지만 추천!)
                         onRestaurantClick={(r) => {
-                            if (r.isDbOnly) {
-                                alert('카카오맵에 등록되지 않은 가게는 상세 페이지를 준비 중입니다.');
-                                return;
-                            }
                             navigate(`/restaurant-detail/${r.id}`, {
                                 state: {
                                     restaurantData: r,
-                                    isBookmarked: myBookmarkIds.includes(Number(r.id))
+                                    restaurantName: r.place_name,
+                                    isBookmarked: r.isDbOnly ? false : myBookmarkIds.includes(Number(r.id))
                                 }
                             });
                         }}

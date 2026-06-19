@@ -16,11 +16,43 @@ const RestaurantDetailPage = () => {
     const restaurantDataFromState = location.state?.restaurantData;
     const restaurantNameFromState = location.state?.restaurantName;
 
+    const isDbOnly = restaurantId?.startsWith('db-');
+    const dbRestIdx = isDbOnly ? parseInt(restaurantId.replace('db-', ''), 10) : null;
+
     const [restaurant, setRestaurant] = useState(null);
     const [activeTab, setActiveTab] = useState('home');
     const [loading, setLoading] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
     const isProcessing = useRef(false);
+
+    const fetchDbOnlyData = useCallback(async (restIdx) => {
+        setLoading(true);
+        try {
+            const [pinRes, congRes] = await Promise.all([
+                axios.get(`http://localhost:8080/api/restaurants/restIdx/${restIdx}`),
+                axios.get(`http://localhost:8080/api/congestion/restIdx/${restIdx}`)
+            ]);
+            const pin = pinRes.data;
+            setRestaurant({
+                id: pin.restIdx,
+                place_name: pin.restName,
+                road_address_name: pin.restAddress,
+                address_name: pin.restAddress,
+                phone: pin.restTel || '',
+                category_name: null,
+                averageRating: pin.averageRating || 0,
+                reviewCount: pin.reviewCount || 0,
+                ownerUserIdx: pin.ownerUserIdx ?? null,
+                congestion: congRes.data || '혼잡도 이력 없음',
+                dataStatus: 'ACTIVE',
+                isDbOnly: true,
+            });
+        } catch (error) {
+            console.error("DB 가게 데이터 조회 실패:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     const fetchCombinedData = useCallback(async (id, name) => {
         if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) return;
@@ -66,8 +98,6 @@ const RestaurantDetailPage = () => {
 
                         setRestaurant({
                             ...matched,
-                            // [핵심] matched.id(카카오ID) 대신 서버 엔티티의 PK를 할당합니다.
-                            // 만약 Restaurant 엔티티의 PK 필드명이 restIdx라면 serverData.restIdx를 사용하세요.
                             id: serverData.restIdx || serverData.id,
                             dataStatus: serverData.status,
                             congestion: congRes.data === "null" ? "정보없음" : congRes.data,
@@ -95,11 +125,15 @@ const RestaurantDetailPage = () => {
     }, []);
 
     useEffect(() => {
+        if (isDbOnly && dbRestIdx) {
+            fetchDbOnlyData(dbRestIdx);
+            return;
+        }
         const targetName = restaurantNameFromState || restaurantDataFromState?.place_name || restaurantDataFromState?.restName;
         if (restaurantId && targetName) {
             fetchCombinedData(restaurantId, targetName);
         }
-    }, [restaurantId, restaurantNameFromState, restaurantDataFromState, fetchCombinedData]);
+    }, [restaurantId, isDbOnly, dbRestIdx, restaurantNameFromState, restaurantDataFromState, fetchCombinedData, fetchDbOnlyData]);
 
     // 진입 시 현재 가게가 즐겨찾기 되어 있는지 조회
     useEffect(() => {
@@ -122,19 +156,16 @@ const RestaurantDetailPage = () => {
             return;
         }
         try {
-            await axios.post('http://localhost:8080/api/bookmarks/toggle', {
-                userIdx: userIdx,
-                kakaoId: restaurantId,
-                restName: restaurant?.place_name,
-                restAddress: restaurant?.road_address_name || restaurant?.address_name,
-                restTel: restaurant?.phone
-            }, { withCredentials: true });
+            const payload = isDbOnly
+                ? { userIdx, restIdx: restaurant?.id, restName: restaurant?.place_name }
+                : { userIdx, kakaoId: restaurantId, restName: restaurant?.place_name, restAddress: restaurant?.road_address_name || restaurant?.address_name, restTel: restaurant?.phone };
+            await axios.post('http://localhost:8080/api/bookmarks/toggle', payload, { withCredentials: true });
             setIsBookmarked(prev => !prev);
         } catch (error) {
             console.error("즐겨찾기 처리 실패:", error);
             alert("처리에 실패했습니다. 다시 시도해주세요.");
         }
-    }, [isLoggedIn, userIdx, restaurantId, restaurant, navigate, location.pathname]);
+    }, [isLoggedIn, userIdx, restaurantId, restaurant, navigate, location.pathname, isDbOnly]);
 
     if (loading && !restaurant) return <div style={styles.loading}>정보를 동기화 중입니다...</div>;
     if (!restaurant) return <div style={styles.loading}>정보를 불러올 수 없습니다.</div>;
@@ -156,7 +187,7 @@ const RestaurantDetailPage = () => {
                                 {isBookmarked ? '⭐' : '☆'}
                             </button>
                         </div>
-                        <p style={styles.category}>{restaurant.category_name}</p>
+                        {restaurant.category_name && <p style={styles.category}>{restaurant.category_name}</p>}
                     </div>
                     <div style={styles.stats}>
                         <div style={styles.rating}>⭐ {restaurant.averageRating ?? 0}</div>

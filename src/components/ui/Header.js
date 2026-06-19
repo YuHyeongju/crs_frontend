@@ -50,12 +50,15 @@ const Header = ({ searchTerm, setSearchTerm, onSearch, isMobile }) => {
             alignItems: 'center',
             height: isMobile ? 'auto' : '40px',
             gap: isMobile ? '10px' : '0',
-            zIndex: 100
+            zIndex: 1000
         }}>
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}>
+            <div
+                onClick={() => navigate('/')}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+            >
                 <FaMapMarkerAlt style={{ fontSize: '24px', color: '#E74C3C' }} />
                 <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2C3E50' }}>CRS</span>
-            </Link>
+            </div>
 
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <input
