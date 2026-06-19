@@ -1,13 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { FaStore, FaPhone, FaMapMarkerAlt, FaClock, FaTimesCircle } from 'react-icons/fa';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { FaStore, FaPhone, FaMapMarkerAlt, FaClock, FaTimesCircle, FaTicketAlt, FaTrash } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { AuthContext } from '../../../context/AuthContext';
 
 const MerchantEditDeletePanel = ({ storeId, onBack }) => {
   const navigate = useNavigate();
+  const { userIdx } = useContext(AuthContext);
   const [storeInfo, setStoreInfo] = useState(null);
   const [newMenu, setNewMenu] = useState({ name: '', price: '', imageFile: null, imagePreviewUrl: '' });
   const [loading, setLoading] = useState(true);
+  const [coupons, setCoupons] = useState([]);
+  const [editingCouponIdx, setEditingCouponIdx] = useState(null);
+  const [editingCouponForm, setEditingCouponForm] = useState({});
+
+  const fetchCoupons = useCallback(async () => {
+    if (!userIdx) return;
+    try {
+      const res = await axios.get(`/api/coupons/my-store/${userIdx}`);
+      setCoupons((res.data || []).filter(c => c.restIdx === Number(storeId)));
+    } catch (err) {
+      console.error('쿠폰 로드 실패:', err);
+    }
+  }, [userIdx, storeId]);
 
   // 1. 초기 데이터 로드 (상세 정보 가져오기)
   useEffect(() => {
@@ -15,8 +30,11 @@ const MerchantEditDeletePanel = ({ storeId, onBack }) => {
       if (!storeId) return;
       try {
         setLoading(true);
-        const response = await axios.get(`/api/restaurants/${storeId}`, { withCredentials: true });
-        setStoreInfo(response.data);
+        const [storeRes] = await Promise.all([
+          axios.get(`/api/restaurants/edit/${storeId}`, { withCredentials: true }),
+          fetchCoupons(),
+        ]);
+        setStoreInfo(storeRes.data);
       } catch (error) {
         console.error("데이터 로드 실패:", error);
         alert('식당 정보를 불러오지 못했습니다.');
@@ -25,7 +43,7 @@ const MerchantEditDeletePanel = ({ storeId, onBack }) => {
       }
     };
     fetchStoreData();
-  }, [storeId]);
+  }, [storeId, fetchCoupons]);
 
   if (loading || !storeInfo) return <div style={{ padding: '30px' }}>데이터를 불러오는 중...</div>;
 
@@ -140,6 +158,51 @@ const MerchantEditDeletePanel = ({ storeId, onBack }) => {
     }
   };
 
+  // --- 쿠폰 핸들러 ---
+  const handleCouponEditStart = (c) => {
+    setEditingCouponIdx(c.couponIdx);
+    setEditingCouponForm({
+      title: c.title,
+      description: c.description || '',
+      pointCost: c.pointCost,
+      validUntil: c.validUntil || '',
+    });
+  };
+
+  const handleCouponEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditingCouponForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCouponEditSave = async (couponIdx) => {
+    if (!editingCouponForm.title.trim()) { alert('쿠폰 이름을 입력해주세요.'); return; }
+    if (!editingCouponForm.pointCost || Number(editingCouponForm.pointCost) <= 0) { alert('필요 포인트를 올바르게 입력해주세요.'); return; }
+    try {
+      await axios.post(`/api/coupons/update/${couponIdx}`, {
+        title: editingCouponForm.title.trim(),
+        description: editingCouponForm.description.trim(),
+        pointCost: Number(editingCouponForm.pointCost),
+        validUntil: editingCouponForm.validUntil || null,
+      }, { params: { merchantUserIdx: Number(userIdx) } });
+      setEditingCouponIdx(null);
+      fetchCoupons();
+    } catch (err) {
+      alert(err.response?.data || '쿠폰 수정에 실패했습니다.');
+    }
+  };
+
+  const handleCouponDelete = async (couponIdx) => {
+    if (!window.confirm('이 쿠폰을 삭제(비활성화)할까요?')) return;
+    try {
+      await axios.post(`/api/coupons/delete/${couponIdx}`, null, {
+        params: { merchantUserIdx: Number(userIdx) },
+      });
+      fetchCoupons();
+    } catch (err) {
+      alert(err.response?.data || '쿠폰 삭제에 실패했습니다.');
+    }
+  };
+
   // --- 스타일 정의 ---
   const styles = {
     container: { padding: '30px', fontFamily: 'Arial, sans-serif' },
@@ -163,6 +226,11 @@ const MerchantEditDeletePanel = ({ storeId, onBack }) => {
     buttonsContainer: { display: 'flex', justifyContent: 'space-between', marginTop: '30px', gap: '20px' },
     updateBtn: { flexGrow: 1, padding: '15px', border: 'none', borderRadius: '8px', backgroundColor: '#28a745', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' },
     deleteBtn: { flexGrow: 1, padding: '15px', border: 'none', borderRadius: '8px', backgroundColor: '#dc3545', color: 'white', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer' },
+    couponInput: { width: '100%', padding: '9px 10px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', marginTop: '4px' },
+    couponLabel: { fontSize: '13px', fontWeight: 'bold', color: '#555' },
+    couponRegisterBtn: { width: '100%', padding: '11px', border: 'none', borderRadius: '6px', backgroundColor: '#007bff', color: 'white', fontSize: '15px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' },
+    couponItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9f9f9', border: '1px solid #eee', borderRadius: '6px', padding: '12px 15px', marginBottom: '8px' },
+    couponDeleteBtn: { border: '1px solid #dc3545', backgroundColor: 'white', color: '#dc3545', borderRadius: '5px', padding: '6px 10px', cursor: 'pointer', fontSize: '13px' },
   };
 
   const facilityOptions = [
@@ -234,6 +302,68 @@ const MerchantEditDeletePanel = ({ storeId, onBack }) => {
             </label>
           ))}
         </div>
+      </div>
+
+      {/* 쿠폰 관리 */}
+      <div style={styles.section}>
+        <div style={styles.sectionTitle}><FaTicketAlt style={{ marginRight: '8px' }} />쿠폰 수정 / 삭제</div>
+
+        {coupons.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#999', fontSize: '14px', border: '1px dashed #ddd', borderRadius: '6px' }}>
+            등록된 쿠폰이 없습니다.
+          </div>
+        ) : (
+          coupons.map(c => (
+            <div key={c.couponIdx} style={{ ...styles.couponItem, flexDirection: 'column', alignItems: 'stretch' }}>
+              {editingCouponIdx === c.couponIdx ? (
+                // 수정 모드
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <div style={styles.couponLabel}>쿠폰 이름</div>
+                    <input name="title" value={editingCouponForm.title} onChange={handleCouponEditChange} style={styles.couponInput} maxLength={100} />
+                  </div>
+                  <div>
+                    <div style={styles.couponLabel}>설명</div>
+                    <input name="description" value={editingCouponForm.description} onChange={handleCouponEditChange} style={styles.couponInput} maxLength={500} />
+                  </div>
+                  <div>
+                    <div style={styles.couponLabel}>필요 포인트</div>
+                    <input name="pointCost" type="number" min="1" value={editingCouponForm.pointCost} onChange={handleCouponEditChange} style={styles.couponInput} />
+                  </div>
+                  <div>
+                    <div style={styles.couponLabel}>유효기간</div>
+                    <input name="validUntil" type="date" value={editingCouponForm.validUntil} onChange={handleCouponEditChange} style={styles.couponInput} />
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button onClick={() => handleCouponEditSave(c.couponIdx)} style={{ ...styles.couponRegisterBtn, flexGrow: 1, marginTop: 0 }}>저장</button>
+                    <button onClick={() => setEditingCouponIdx(null)} style={{ ...styles.couponDeleteBtn, flexGrow: 1 }}>취소</button>
+                  </div>
+                </div>
+              ) : (
+                // 보기 모드
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#444' }}>
+                      {c.title} {!c.active && <span style={{ color: '#aaa', fontSize: '12px' }}>(중지됨)</span>}
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#888', marginTop: '3px' }}>
+                      <span style={{ color: '#007bff', fontWeight: 'bold' }}>{c.pointCost.toLocaleString()}P</span> · 유효기간: {c.validUntil || '무기한'}
+                    </div>
+                    {c.description && <div style={{ fontSize: '13px', color: '#999', marginTop: '2px' }}>{c.description}</div>}
+                  </div>
+                  {c.active && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button style={{ ...styles.couponDeleteBtn, color: '#28a745', borderColor: '#28a745' }} onClick={() => handleCouponEditStart(c)}>수정</button>
+                      <button style={styles.couponDeleteBtn} onClick={() => handleCouponDelete(c.couponIdx)}>
+                        <FaTrash style={{ marginRight: '4px' }} />삭제
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
 
       {/* 하단 버튼 */}

@@ -1,6 +1,7 @@
 
 import React, { useContext, useEffect, useState } from 'react';
-import axios from 'axios'; 
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import UserMyPage from '../mypage/user/UserMyPage';
 import MerchantMyPage from '../mypage/merchant/MerchantMyPage';
@@ -8,24 +9,29 @@ import AdminMyPage from '../mypage/admin/AdminMyPage';
 import NotLoggedInPage from './NotLoggedInPage';
 
 const MyPage = () => {
-  const { isLoggedIn} = useContext(AuthContext);
-  const [mypage, setMyPage] = useState(null); // 서버에서 받을 DTO 데이터 저장
+  const { isLoggedIn, logout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const [mypage, setMyPage] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (isLoggedIn) {
-      // 백엔드에서 만든 MypageResponseDto 가져오기
-      axios.get(`/api/users/mypage`,{ withCredentials: true })
+      axios.get('/api/users/mypage', { withCredentials: true })
         .then(response => {
-          setMyPage(response.data); // DTO 데이터 저장
+          setMyPage(response.data);
           setLoading(false);
         })
         .catch(error => {
-          console.error("데이터 로딩 실패:", error);
-          setLoading(false);
+          if (error.response?.status === 401) {
+            logout();
+            navigate('/login', { replace: true });
+          } else {
+            console.error('데이터 로딩 실패:', error);
+            setLoading(false);
+          }
         });
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, logout, navigate]);
 
   if (!isLoggedIn) return <NotLoggedInPage />;
   if (loading) return <div>로딩 중...</div>;

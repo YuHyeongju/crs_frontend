@@ -20,7 +20,12 @@ export const AuthProvider = ({ children }) => {
     return sessionStorage.getItem('userIdx');
   });
 
+  const isLoggedInRef = useRef(isLoggedIn);
   const sessionAlertedRef = useRef(false);
+
+  useEffect(() => {
+    isLoggedInRef.current = isLoggedIn;
+  }, [isLoggedIn]);
 
   const login = (role, idx) => {
     setIsLoggedIn(true);
@@ -49,7 +54,7 @@ export const AuthProvider = ({ children }) => {
         const url = error?.config?.url || '';
         const isAuthEndpoint = url.includes('/api/users/login') || url.includes('/api/users/signup');
 
-        if (status === 401 && isLoggedIn && !isAuthEndpoint && !sessionAlertedRef.current) {
+        if (status === 401 && isLoggedInRef.current && !isAuthEndpoint && !sessionAlertedRef.current) {
           sessionAlertedRef.current = true;
           setIsLoggedIn(false);
           setUserRole(null);
@@ -67,7 +72,7 @@ export const AuthProvider = ({ children }) => {
       }
     );
     return () => axios.interceptors.response.eject(interceptor);
-  }, [isLoggedIn, navigate, location.pathname, location.search]);
+  }, [navigate, location.pathname, location.search]);
 
   const value = {
     isLoggedIn,
