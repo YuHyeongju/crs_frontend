@@ -26,11 +26,16 @@ const BookmarksPanel = () => {
   }, []);
 
   // 2. 즐겨찾기 취소 로직
-  const handleDeleteItem = async (kakaoId) => {
+  const handleDeleteItem = async (restaurant) => {
     if (!window.confirm("이 식당을 즐겨찾기에서 제외할까요?")) return;
     try {
-      await axios.post('/api/bookmarks/toggle', { kakaoId }, { withCredentials: true });
-      setBookmarkedRestaurants(prev => prev.filter(item => item.kakaoId !== kakaoId));
+      const payload = restaurant.kakaoId
+        ? { kakaoId: restaurant.kakaoId }
+        : { restIdx: restaurant.restIdx };
+      await axios.post('/api/bookmarks/toggle', payload, { withCredentials: true });
+      setBookmarkedRestaurants(prev => prev.filter(item =>
+        restaurant.kakaoId ? item.kakaoId !== restaurant.kakaoId : item.restIdx !== restaurant.restIdx
+      ));
     } catch (error) {
       alert("취소 중 오류가 발생했습니다.");
     }
@@ -73,24 +78,27 @@ const BookmarksPanel = () => {
       {bookmarkedRestaurants.length > 0 ? (
         <>
           <div style={styles.restaurantList}>
-            {currentItems.map(restaurant => (
-              <div key={restaurant.kakaoId} style={styles.restaurantItem}>
-                <div style={styles.restaurantDetails}>
-                  <div style={styles.restaurantName}>{restaurant.restName}</div>
-                  <div style={styles.infoText}><FaMapMarkerAlt /> {restaurant.restAddress}</div>
-                  <div style={styles.infoText}><FaPhone /> {restaurant.restTel || '정보 없음'}</div>
+            {currentItems.map(restaurant => {
+              const detailId = restaurant.kakaoId ? restaurant.kakaoId : `db-${restaurant.restIdx}`;
+              return (
+                <div key={detailId} style={styles.restaurantItem}>
+                  <div style={styles.restaurantDetails}>
+                    <div style={styles.restaurantName}>{restaurant.restName}</div>
+                    <div style={styles.infoText}><FaMapMarkerAlt /> {restaurant.restAddress}</div>
+                    <div style={styles.infoText}><FaPhone /> {restaurant.restTel || '정보 없음'}</div>
+                  </div>
+                  <div style={styles.buttonContainer}>
+                    <button
+                      style={styles.actionButton(true)}
+                      onClick={() => navigate(`/restaurant-detail/${detailId}`, {
+                        state: { restaurantName: restaurant.restName }
+                      })}
+                    >상세보기</button>
+                    <button style={styles.actionButton(false)} onClick={() => handleDeleteItem(restaurant)}>취소</button>
+                  </div>
                 </div>
-                <div style={styles.buttonContainer}>
-                  <button 
-                    style={styles.actionButton(true)} 
-                    onClick={() => navigate(`/restaurant-detail/${restaurant.kakaoId}`, {
-                      state: { restaurantName: restaurant.restName }
-                    })}
-                  >상세보기</button>
-                  <button style={styles.actionButton(false)} onClick={() => handleDeleteItem(restaurant.kakaoId)}>취소</button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div style={styles.pagination}>
             <button

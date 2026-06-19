@@ -23,6 +23,8 @@ const RestaurantDetailPage = () => {
     const [activeTab, setActiveTab] = useState('home');
     const [loading, setLoading] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
+    const [coupons, setCoupons] = useState([]);
+    const [myPoints, setMyPoints] = useState(0);
     const isProcessing = useRef(false);
 
     const fetchDbOnlyData = useCallback(async (restIdx) => {
@@ -135,6 +137,65 @@ const RestaurantDetailPage = () => {
         }
     }, [restaurantId, isDbOnly, dbRestIdx, restaurantNameFromState, restaurantDataFromState, fetchCombinedData, fetchDbOnlyData]);
 
+    // 가게 로드 후 해당 가게 쿠폰 + 내 포인트 조회
+    useEffect(() => {
+        if (!restaurant) return;
+        const restIdx = restaurant.isDbOnly ? restaurant.id : restaurant.id;
+        axios.get(`http://localhost:8080/api/coupons/available/restaurant/${restIdx}`)
+            .then(res => setCoupons(res.data || []))
+            .catch(() => setCoupons([]));
+        if (isLoggedIn && userIdx) {
+            axios.get(`http://localhost:8080/api/rewards/balance/${userIdx}`)
+                .then(res => setMyPoints(res.data?.balance ?? 0))
+                .catch(() => setMyPoints(0));
+        }
+    }, [restaurant, isLoggedIn, userIdx]);
+
+    const refreshStats = useCallback(async () => {
+        if (!restaurant) return;
+        try {
+            if (isDbOnly) {
+                const res = await axios.get(`http://localhost:8080/api/restaurants/restIdx/${dbRestIdx}`);
+                setRestaurant(prev => ({
+                    ...prev,
+                    averageRating: res.data.averageRating ?? prev.averageRating,
+                    reviewCount: res.data.reviewCount ?? prev.reviewCount,
+                }));
+            } else {
+                const res = await axios.get(`http://localhost:8080/api/restaurants/kakaoId/${restaurantId}`);
+                setRestaurant(prev => ({
+                    ...prev,
+                    averageRating: res.data.averageRating ?? prev.averageRating,
+                    reviewCount: res.data.reviewCount ?? prev.reviewCount,
+                }));
+            }
+        } catch (e) {
+            console.warn('평점 갱신 실패:', e);
+        }
+    }, [restaurant, isDbOnly, dbRestIdx, restaurantId]);
+
+    const handleCouponRedeem = useCallback(async (coupon) => {
+        if (!isLoggedIn) {
+            alert('로그인 후 이용 가능합니다.');
+            navigate('/login', { state: { from: location.pathname } });
+            return;
+        }
+        if (myPoints < coupon.pointCost) {
+            alert(`포인트가 부족합니다. (보유 ${myPoints}P / 필요 ${coupon.pointCost}P)`);
+            return;
+        }
+        if (!window.confirm(`'${coupon.title}' 쿠폰을 ${coupon.pointCost.toLocaleString()}P에 교환할까요?`)) return;
+        try {
+            await axios.post(`http://localhost:8080/api/coupons/${coupon.couponIdx}/redeem`, null, {
+                params: { userIdx: Number(userIdx) },
+            });
+            alert('쿠폰을 교환했습니다.');
+            setMyPoints(prev => prev - coupon.pointCost);
+        } catch (err) {
+            alert(err.response?.data || '교환에 실패했습니다.');
+        }
+    }, [isLoggedIn, userIdx, myPoints, navigate, location.pathname]);
+
     // 진입 시 현재 가게가 즐겨찾기 되어 있는지 조회
     useEffect(() => {
         if (!isLoggedIn || !userIdx || !restaurantId) {
@@ -210,7 +271,53 @@ const RestaurantDetailPage = () => {
                 </div>
 
                 <div style={{ marginTop: '20px' }}>
-                    {activeTab === 'home' && <HomeTab restaurant={restaurant} />}
+                    {activeTab === 'home' && (
+                        <>
+                            <HomeTab restaurant={restaurant} />
+                            {coupons.length > 0 && (
+                                <div style={{ marginTop: '24px' }}>
+                                    <h4 style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', marginBottom: '12px' }}>
+                                        이 가게 쿠폰
+                                    </h4>
+                                    {isLoggedIn && (
+                                        <p style={{ fontSize: '13px', color: '#888', marginBottom: '10px' }}>
+                                            보유 포인트: <strong style={{ color: '#007bff' }}>{myPoints.toLocaleString()}P</strong>
+                                        </p>
+                                    )}
+                                    {coupons.map(c => {
+                                        const affordable = isLoggedIn && myPoints >= c.pointCost;
+                                        return (
+                                            <div key={c.couponIdx} style={{
+                                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                border: '1px solid #ddd', borderRadius: '8px', padding: '12px 15px',
+                                                marginBottom: '8px', backgroundColor: '#fff'
+                                            }}>
+                                                <div>
+                                                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#333' }}>{c.title}</div>
+                                                    {c.description && <div style={{ fontSize: '13px', color: '#666', marginTop: '3px' }}>{c.description}</div>}
+                                                    <div style={{ fontSize: '13px', color: '#007bff', fontWeight: 'bold', marginTop: '4px' }}>
+                                                        {c.pointCost.toLocaleString()}P · 유효기간: {c.validUntil || '무기한'}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleCouponRedeem(c)}
+                                                    style={{
+                                                        backgroundColor: affordable ? '#28a745' : '#ccc',
+                                                        color: 'white', border: 'none', borderRadius: '6px',
+                                                        padding: '8px 14px', fontSize: '13px', fontWeight: 'bold',
+                                                        cursor: affordable ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap'
+                                                    }}
+                                                    disabled={!isLoggedIn || !affordable}
+                                                >
+                                                    {!isLoggedIn ? '로그인 필요' : affordable ? '교환' : '포인트 부족'}
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </>
+                    )}
                     {activeTab === 'photos' && <PhotosTab restaurant={restaurant} />}
                     {activeTab === 'menu' && <MenuTab restaurant={restaurant} />}
                     {activeTab === 'reviews' && restaurant.id && (
@@ -218,6 +325,7 @@ const RestaurantDetailPage = () => {
                             restaurant={restaurant}
                             restIdx={restaurant.id}
                             ownerUserIdx={restaurant.ownerUserIdx}
+                            onReviewSubmitted={refreshStats}
                         />
                     )}
                 </div>

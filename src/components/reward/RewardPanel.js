@@ -7,10 +7,9 @@ const RewardPanel = () => {
   const { userIdx } = useContext(AuthContext);
   const [points, setPoints] = useState(0);
   const [myCoupons, setMyCoupons] = useState([]);
-  const [availableCoupons, setAvailableCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 보유 포인트 + 보유 쿠폰 + 교환 가능 쿠폰을 한 번에 조회
+  // 보유 포인트 + 보유 쿠폰 조회
   const fetchAll = useCallback(async () => {
     if (!userIdx) {
       setLoading(false);
@@ -18,14 +17,12 @@ const RewardPanel = () => {
     }
     setLoading(true);
     try {
-      const [balanceRes, myRes, availRes] = await Promise.all([
+      const [balanceRes, myRes] = await Promise.all([
         axios.get(`/api/rewards/balance/${userIdx}`),
         axios.get(`/api/coupons/my/${userIdx}`),
-        axios.get(`/api/coupons/available`),
       ]);
       setPoints(balanceRes.data?.balance ?? 0);
       setMyCoupons(myRes.data || []);
-      setAvailableCoupons(availRes.data || []);
     } catch (err) {
       console.error('리워드 정보 조회 실패:', err);
     } finally {
@@ -36,25 +33,6 @@ const RewardPanel = () => {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
-
-  // 포인트로 쿠폰 교환
-  const handleRedeem = async (coupon) => {
-    if (points < coupon.pointCost) {
-      alert('포인트가 부족합니다.');
-      return;
-    }
-    if (!window.confirm(`'${coupon.title}' 쿠폰을 ${coupon.pointCost.toLocaleString()}P에 교환할까요?`)) return;
-    try {
-      await axios.post(`/api/coupons/${coupon.couponIdx}/redeem`, null, {
-        params: { userIdx: Number(userIdx) },
-      });
-      alert('쿠폰을 교환했습니다.');
-      fetchAll();
-    } catch (err) {
-      console.error('쿠폰 교환 실패:', err);
-      alert(err.response?.data || '교환에 실패했습니다.');
-    }
-  };
 
   // 보유 쿠폰 사용
   const handleUseCoupon = async (userCouponIdx) => {
@@ -234,48 +212,6 @@ const RewardPanel = () => {
         )}
       </div>
 
-      {/* 포인트로 교환 가능한 쿠폰 */}
-      <div style={styles.section}>
-        <div style={styles.sectionTitle}>
-          <FaGift style={styles.sectionIcon} />
-          <span>포인트로 교환하기</span>
-        </div>
-        {availableCoupons.length > 0 ? (
-          <div style={styles.couponList}>
-            {availableCoupons.map(c => {
-              const affordable = points >= c.pointCost;
-              return (
-                <div key={c.couponIdx} style={styles.couponItem}>
-                  <div style={styles.couponDetails}>
-                    <div style={styles.couponTitle}>{c.title}</div>
-                    <div style={styles.couponExpiry}>{c.restName} · 유효기간: {c.validUntil || '무기한'}</div>
-                    {c.description && (
-                      <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>{c.description}</div>
-                    )}
-                    <div style={styles.couponCost}>{c.pointCost.toLocaleString()}P</div>
-                  </div>
-                  <button
-                    style={{
-                      ...styles.useButton,
-                      backgroundColor: affordable ? '#28a745' : '#ccc',
-                      cursor: affordable ? 'pointer' : 'not-allowed',
-                    }}
-                    onClick={() => handleRedeem(c)}
-                    disabled={!affordable}
-                  >
-                    교환
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div style={styles.noCouponBox}>
-            <FaTicketAlt style={{ fontSize: '40px', color: '#ccc' }} />
-            <div style={styles.noCouponText}>교환 가능한 쿠폰이 없어요.</div>
-          </div>
-        )}
-      </div>
     </div>
   );
 };

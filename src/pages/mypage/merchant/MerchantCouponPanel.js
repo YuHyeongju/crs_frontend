@@ -127,7 +127,7 @@ const MerchantCouponPanel = () => {
       padding: '15px',
       marginBottom: '10px',
     },
-    couponTitle: { fontSize: '16px', fontWeight: 'bold', color: '#444' },
+    couponTitle: { fontSize: '16px', fontWeight: 'bold', color: '#444', textAlign: 'left' },
     couponMeta: { fontSize: '13px', color: '#888', marginTop: '5px' },
     cost: { color: '#007bff', fontWeight: 'bold' },
     deleteButton: {

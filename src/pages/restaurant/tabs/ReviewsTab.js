@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../../context/AuthContext';
 
-const ReviewsTab = ({ restIdx, ownerUserIdx }) => {
+const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { userRole, userIdx } = useContext(AuthContext);
@@ -16,6 +16,9 @@ const ReviewsTab = ({ restIdx, ownerUserIdx }) => {
     const [rating, setRating] = useState(0);
     const [content, setContent] = useState("");
     const [reviews, setReviews] = useState([]);
+    const [editingId, setEditingId] = useState(null);
+    const [editContent, setEditContent] = useState('');
+    const [editRating, setEditRating] = useState(5);
 
     const userInfo = JSON.parse(sessionStorage.getItem('user') || 'null'); 
 
@@ -59,10 +62,52 @@ const ReviewsTab = ({ restIdx, ownerUserIdx }) => {
             alert("리뷰가 등록되었습니다.");
             setContent("");
             setRating(0);
-            fetchReviews(); 
+            fetchReviews();
+            if (onReviewSubmitted) onReviewSubmitted();
         } catch (error) {
             console.error("등록 에러:", error);
             alert("등록에 실패했습니다.");
+        }
+    };
+
+    const startEdit = (r) => {
+        setEditingId(r.reviewIdx);
+        setEditContent(r.content);
+        setEditRating(r.rating);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditContent('');
+        setEditRating(5);
+    };
+
+    const submitEdit = async (reviewIdx) => {
+        if (!editContent.trim()) return alert('내용을 입력해주세요.');
+        try {
+            await axios.put(`/api/reviews/${reviewIdx}`, {
+                userIdx: Number(userInfo.userIdx),
+                content: editContent.trim(),
+                rating: editRating,
+            });
+            cancelEdit();
+            fetchReviews();
+            if (onReviewSubmitted) onReviewSubmitted();
+        } catch (error) {
+            alert(error.response?.data || '수정에 실패했습니다.');
+        }
+    };
+
+    const handleDeleteReview = async (reviewIdx) => {
+        if (!window.confirm('이 리뷰를 삭제할까요?')) return;
+        try {
+            await axios.delete(`/api/reviews/${reviewIdx}`, {
+                params: { userIdx: userInfo.userIdx }
+            });
+            fetchReviews();
+            if (onReviewSubmitted) onReviewSubmitted();
+        } catch (error) {
+            alert(error.response?.data || '삭제에 실패했습니다.');
         }
     };
 
@@ -126,54 +171,78 @@ const ReviewsTab = ({ restIdx, ownerUserIdx }) => {
                 </div>
 
                 {reviews.length > 0 ? (
-                    reviews.map((r) => (
-                        <div key={r.reviewIdx} style={{ 
-                            padding: '20px 0',
-                            borderBottom: '1px solid #F0F0F0'
-                        }}>
-                            {/* 헤더: 별점 + 이름 + 날짜 (가로 배치) */}
-                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-                                <div style={{ color: '#FFD700', fontSize: '14px', letterSpacing: '-2px', marginRight: '8px' }}>
-                                    {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
+                    reviews.map((r) => {
+                        const isOwn = userInfo && r.userIdx === Number(userInfo.userIdx);
+                        const isEditing = editingId === r.reviewIdx;
+                        return (
+                            <div key={r.reviewIdx} style={{ padding: '20px 0', borderBottom: '1px solid #F0F0F0' }}>
+                                {/* 헤더: 별점 + 이름 + 날짜 */}
+                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                                    <div style={{ color: '#FFD700', fontSize: '14px', letterSpacing: '-2px', marginRight: '8px' }}>
+                                        {isEditing
+                                            ? [1,2,3,4,5].map(s => (
+                                                <span key={s} onClick={() => setEditRating(s)}
+                                                    style={{ cursor: 'pointer', color: editRating >= s ? '#FFD700' : '#E5E5E5' }}>★</span>
+                                            ))
+                                            : ('★'.repeat(r.rating) + '☆'.repeat(5 - r.rating))
+                                        }
+                                    </div>
+                                    <span style={{ fontWeight: 'bold', fontSize: '14px', marginRight: '8px', color: '#333' }}>
+                                        {r.userName || '익명'}
+                                    </span>
+                                    <span style={{ color: '#BBB', fontSize: '12px' }}>
+                                        {r.reviewAt ? new Date(r.reviewAt).toLocaleDateString().replace(/\.$/, '') : ''}
+                                    </span>
+                                    {isOwn ? (
+                                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+                                            {isEditing ? (
+                                                <>
+                                                    <button onClick={() => submitEdit(r.reviewIdx)}
+                                                        style={{ background: 'none', border: '1px solid #007bff', color: '#007bff', borderRadius: '4px', fontSize: '12px', padding: '3px 8px', cursor: 'pointer' }}>
+                                                        저장
+                                                    </button>
+                                                    <button onClick={cancelEdit}
+                                                        style={{ background: 'none', border: '1px solid #888', color: '#888', borderRadius: '4px', fontSize: '12px', padding: '3px 8px', cursor: 'pointer' }}>
+                                                        취소
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button onClick={() => startEdit(r)}
+                                                        style={{ background: 'none', border: '1px solid #007bff', color: '#007bff', borderRadius: '4px', fontSize: '12px', padding: '3px 8px', cursor: 'pointer' }}>
+                                                        수정
+                                                    </button>
+                                                    <button onClick={() => handleDeleteReview(r.reviewIdx)}
+                                                        style={{ background: 'none', border: '1px solid #dc3545', color: '#dc3545', borderRadius: '4px', fontSize: '12px', padding: '3px 8px', cursor: 'pointer' }}>
+                                                        삭제
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    ) : canReport && (
+                                        <button onClick={() => handleReport(r.reviewIdx)}
+                                            style={{ marginLeft: 'auto', background: 'none', border: '1px solid #FF4D4D', color: '#FF4D4D', borderRadius: '4px', fontSize: '12px', padding: '3px 8px', cursor: 'pointer' }}
+                                            title="이 리뷰 신고하기">
+                                            신고
+                                        </button>
+                                    )}
                                 </div>
-                                <span style={{ fontWeight: 'bold', fontSize: '14px', marginRight: '8px', color: '#333' }}>
-                                    {r.userName || '익명'}
-                                </span>
-                                <span style={{ color: '#BBB', fontSize: '12px' }}>
-                                    {r.reviewAt ? new Date(r.reviewAt).toLocaleDateString().replace(/\.$/, '') : '2026.03.18'}
-                                </span>
-                                {canReport && (
-                                    <button
-                                        onClick={() => handleReport(r.reviewIdx)}
-                                        style={{
-                                            marginLeft: 'auto',
-                                            background: 'none',
-                                            border: '1px solid #FF4D4D',
-                                            color: '#FF4D4D',
-                                            borderRadius: '4px',
-                                            fontSize: '12px',
-                                            padding: '3px 8px',
-                                            cursor: 'pointer'
-                                        }}
-                                        title="이 리뷰 신고하기"
-                                    >
-                                        신고
-                                    </button>
+
+                                {/* 본문 */}
+                                {isEditing ? (
+                                    <textarea
+                                        value={editContent}
+                                        onChange={(e) => setEditContent(e.target.value)}
+                                        style={{ width: '100%', minHeight: '80px', padding: '10px', border: '1px solid #DDD', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical' }}
+                                    />
+                                ) : (
+                                    <div style={{ fontSize: '15px', color: '#444', lineHeight: '1.6', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                                        {r.content}
+                                    </div>
                                 )}
                             </div>
-
-                            {/* 본문: 리뷰 내용 */}
-                            <div style={{ 
-                                fontSize: '15px', 
-                                color: '#444', 
-                                lineHeight: '1.6', 
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-all'
-                            }}>
-                                {r.content}
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
                     <div style={{ textAlign: 'center', padding: '50px 0', color: '#AAA', fontSize: '14px' }}>
                         아직 작성된 리뷰가 없습니다.
