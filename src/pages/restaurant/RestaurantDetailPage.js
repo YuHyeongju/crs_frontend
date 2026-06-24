@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import HomeTab from './tabs/HomeTab';
 import PhotosTab from './tabs/PhotosTab';
 import MenuTab from './tabs/MenuTab';
 import ReviewsTab from './tabs/ReviewsTab';
 import { AuthContext } from '../../context/AuthContext';
+import { ReactComponent as ProfileIcon } from '../../assets/Vector.svg';
 
 const RestaurantDetailPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { restaurantId } = useParams();
-    const { isLoggedIn, userIdx } = useContext(AuthContext);
+    const { isLoggedIn, userIdx, logout } = useContext(AuthContext);
 
     const restaurantDataFromState = location.state?.restaurantData;
     const restaurantNameFromState = location.state?.restaurantName;
@@ -24,6 +25,7 @@ const RestaurantDetailPage = () => {
     const [loading, setLoading] = useState(false);
     const [isBookmarked, setIsBookmarked] = useState(false);
     const [coupons, setCoupons] = useState([]);
+    const [menus, setMenus] = useState([]);
     const [myPoints, setMyPoints] = useState(0);
     const isProcessing = useRef(false);
 
@@ -137,10 +139,13 @@ const RestaurantDetailPage = () => {
         }
     }, [restaurantId, isDbOnly, dbRestIdx, restaurantNameFromState, restaurantDataFromState, fetchCombinedData, fetchDbOnlyData]);
 
-    // 가게 로드 후 해당 가게 쿠폰 + 내 포인트 조회
+    // 가게 로드 후 메뉴 + 쿠폰 + 내 포인트 조회
     useEffect(() => {
         if (!restaurant) return;
-        const restIdx = restaurant.isDbOnly ? restaurant.id : restaurant.id;
+        const restIdx = restaurant.id;
+        axios.get(`http://localhost:8080/api/restaurants/${restIdx}/menus`)
+            .then(res => setMenus(res.data || []))
+            .catch(() => setMenus([]));
         axios.get(`http://localhost:8080/api/coupons/available/restaurant/${restIdx}`)
             .then(res => setCoupons(res.data || []))
             .catch(() => setCoupons([]));
@@ -233,7 +238,21 @@ const RestaurantDetailPage = () => {
 
     return (
         <div style={styles.pageContainer}>
+            <div style={styles.topBar}>
             <button onClick={() => navigate(-1)} style={styles.backBtn}>뒤로가기</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                {isLoggedIn ? (
+                    <>
+                        <button onClick={logout} style={styles.logoutBtn}>로그아웃</button>
+                        <Link to="/mypage" style={styles.profileCircle}>
+                            <ProfileIcon style={{ width: '80%', height: '100%' }} />
+                        </Link>
+                    </>
+                ) : (
+                    <Link to="/login" style={styles.loginBtn}>로그인</Link>
+                )}
+            </div>
+        </div>
 
             <div style={styles.card}>
                 <div style={styles.header}>
@@ -318,8 +337,8 @@ const RestaurantDetailPage = () => {
                             )}
                         </>
                     )}
-                    {activeTab === 'photos' && <PhotosTab restaurant={restaurant} />}
-                    {activeTab === 'menu' && <MenuTab restaurant={restaurant} />}
+                    {activeTab === 'photos' && <PhotosTab menus={menus} />}
+                    {activeTab === 'menu' && <MenuTab menus={menus} />}
                     {activeTab === 'reviews' && restaurant.id && (
                         <ReviewsTab
                             restaurant={restaurant}
@@ -337,7 +356,11 @@ const RestaurantDetailPage = () => {
 const styles = {
     pageContainer: { padding: '20px', backgroundColor: '#f0f2f5', minHeight: '100vh' },
     loading: { padding: '100px', textAlign: 'center', fontSize: '18px' },
-    backBtn: { backgroundColor: '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', marginBottom: '20px' },
+    topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
+    backBtn: { backgroundColor: '#007bff', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer' },
+    logoutBtn: { padding: '8px 15px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' },
+    profileCircle: { width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    loginBtn: { textDecoration: 'none', backgroundColor: '#007bff', color: 'white', padding: '5px 15px', borderRadius: '5px', fontWeight: 'bold', fontSize: '16px' },
     card: { backgroundColor: 'white', borderRadius: '15px', padding: '30px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' },
     title: { margin: 0, fontSize: '28px' },

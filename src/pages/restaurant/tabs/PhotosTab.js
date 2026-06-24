@@ -1,112 +1,84 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-const PhotosTab = ({ restaurant }) => {
-    // 사장님이 등록한 사진이 있는 경우
-    if (restaurant.isRegistered && restaurant.photos?.length > 0) {
+const PhotosTab = ({ menus }) => {
+    const [selectedPhoto, setSelectedPhoto] = useState(null);
+    const photos = menus.filter(m => m.imageUrl);
+
+    if (photos.length === 0) {
         return (
-            <div>
-                <h3 style={{ color: '#333', marginBottom: '25px', textAlign: 'center' }}>사진</h3>
-                
-                <div style={{ 
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
-                    gap: '10px',
-                    padding: '15px',
-                    border: '2px solid #007bff',
-                    borderRadius: '8px',
-                    backgroundColor: '#fff',
-                    maxWidth: '600px',
-                    margin: '0 auto'
-                }}>
-                    {restaurant.photos.map((photo) => (
-                        <div 
-                            key={photo.id}
-                            style={{
-                                width: '100%',
-                                paddingBottom: '100%',
-                                backgroundColor: '#e0e0e0',
-                                borderRadius: '8px',
-                                position: 'relative',
-                                overflow: 'hidden',
-                                cursor: 'pointer'
-                            }}
-                            onClick={() => window.open(photo.url, '_blank')}
-                        >
-                            <img 
-                                src={photo.url} 
-                                alt={photo.alt}
-                                style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    width: '100%',
-                                    height: '100%',
-                                    objectFit: 'cover'
-                                }}
-                            />
-                        </div>
-                    ))}
+            <div style={{ textAlign: 'center', padding: '40px' }}>
+                <h3 style={{ color: '#333', marginBottom: '20px' }}>사진</h3>
+                <div style={styles.emptyBox}>
+                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>📷</div>
+                    <p style={{ color: '#666', fontSize: '16px' }}>등록된 사진이 없습니다.</p>
                 </div>
-                
-                <p style={{ 
-                    color: '#28a745', 
-                    fontSize: '13px', 
-                    textAlign: 'center',
-                    marginTop: '15px',
-                    fontWeight: '500'
-                }}>
-                    ✓ 가게에서 직접 등록한 사진입니다
-                </p>
             </div>
         );
     }
-    
-    // 등록된 사진이 없는 경우 → 카카오맵으로 연결
-    const openKakaoMap = () => {
-        if (restaurant.place_url) {
-            window.open(restaurant.place_url, '_blank');
-        }
-    };
 
     return (
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-            <h3 style={{ color: '#333', marginBottom: '20px' }}>사진</h3>
-            
-            <div style={{ 
-                border: '2px solid #007bff',
-                borderRadius: '8px',
-                padding: '40px',
-                backgroundColor: '#fff'
-            }}>
-                <div style={{ marginBottom: '25px' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>📷</div>
-                    <p style={{ fontSize: '16px', color: '#666', lineHeight: '1.6' }}>
-                        가게 사진은 카카오맵에서<br />확인하실 수 있습니다.
-                    </p>
-                </div>
-                
-                <button 
-                    onClick={openKakaoMap}
-                    style={{
-                        backgroundColor: '#FEE500',
-                        color: '#000',
-                        border: 'none',
-                        padding: '14px 28px',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                        transition: 'transform 0.2s'
-                    }}
-                    onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
-                    onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
-                >
-                    📸 카카오맵에서 사진 보기
-                </button>
+        <div>
+            <h3 style={{ color: '#333', marginBottom: '25px', textAlign: 'center' }}>사진</h3>
+            <div style={styles.grid}>
+                {photos.map((photo) => (
+                    <div key={photo.menuIdx} style={styles.cell}
+                        onClick={() => setSelectedPhoto(photo)}>
+                        <img src={photo.imageUrl} alt={photo.menuName} style={styles.img} />
+                    </div>
+                ))}
             </div>
+
+            {selectedPhoto && (
+                <div style={styles.overlay} onClick={() => setSelectedPhoto(null)}>
+                    <div style={styles.modal} onClick={e => e.stopPropagation()}>
+                        <button style={styles.closeBtn} onClick={() => setSelectedPhoto(null)}>✕</button>
+                        <img src={selectedPhoto.imageUrl} alt={selectedPhoto.menuName}
+                            style={styles.modalImg} />
+                    </div>
+                </div>
+            )}
         </div>
     );
+};
+
+const styles = {
+    emptyBox: {
+        border: '2px solid #ddd', borderRadius: '8px',
+        padding: '40px', backgroundColor: '#fff'
+    },
+    grid: {
+        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '10px', padding: '15px', maxWidth: '600px', margin: '0 auto'
+    },
+    cell: {
+        width: '100%', paddingBottom: '100%', position: 'relative',
+        borderRadius: '8px', overflow: 'hidden', cursor: 'pointer',
+        backgroundColor: '#e0e0e0'
+    },
+    img: {
+        position: 'absolute', top: 0, left: 0,
+        width: '100%', height: '100%', objectFit: 'cover'
+    },
+    overlay: {
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.75)', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', zIndex: 1000
+    },
+    modal: {
+        position: 'relative', backgroundColor: '#fff', borderRadius: '12px',
+        padding: '20px', textAlign: 'center', maxWidth: '480px', width: '90%'
+    },
+    modalImg: {
+        width: '100%', maxHeight: '400px',
+        objectFit: 'contain', borderRadius: '8px'
+    },
+    closeBtn: {
+        position: 'absolute', top: '10px', right: '10px',
+        width: '32px', height: '32px', borderRadius: '50%',
+        backgroundColor: '#333', color: 'white', border: 'none',
+        fontSize: '16px', cursor: 'pointer', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', lineHeight: '1'
+    },
 };
 
 export default PhotosTab;
