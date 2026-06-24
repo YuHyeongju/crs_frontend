@@ -16,6 +16,8 @@ import MerchantSelectPanel from './pages/mypage/merchant/MerchantSelectPanel';  
 import MerchantEditDeletePanel from './pages/mypage/merchant/MerchantEditDeletePanel'; // 식당 수정/삭제 컴포넌트 추가
 import MerchantRegisterPanel from './pages/mypage/merchant/MerchantRegisterPanel';     // 식당 등록 컴포넌트 추가
 import RestaurantDetailPage from './pages/restaurant/RestaurantDetailPage';            // 식당 상세보기 페이지
+import FindIdPage from './pages/auth/FindIdPage';                                      // 아이디 찾기 페이지
+import ResetPasswordPage from './pages/auth/ResetPasswordPage';                        // 비밀번호 찾기 페이지
 
 function App() {
   const [selectedStoreId, setSelectedStoreId] = useState(null);
@@ -56,6 +58,8 @@ function App() {
               )
             } />
             <Route path="/restaurant-detail/:restaurantId" element={<RestaurantDetailPage />} />
+            <Route path="/find-id" element={<FindIdPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
           </Routes>
         </div>
       </AuthProvider>
