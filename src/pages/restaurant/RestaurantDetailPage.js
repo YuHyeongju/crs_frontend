@@ -58,64 +58,64 @@ const RestaurantDetailPage = () => {
         }
     }, []);
 
-    const fetchCombinedData = useCallback(async (id, name) => {
-        if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) return;
+    const fetchCombinedData = useCallback(async (id, name, preloadedPlace = null) => {
         if (isProcessing.current) return;
-
         isProcessing.current = true;
         setLoading(true);
 
-        const ps = new window.kakao.maps.services.Places();
+        const processPlace = async (placeData) => {
+            try {
+                const restRes = await axios.post('http://localhost:8080/api/restaurants/detail', {
+                    kakaoId: id,
+                    restName: placeData.place_name,
+                    restAddress: placeData.road_address_name || placeData.address_name,
+                    restTel: placeData.phone
+                }, { withCredentials: true });
 
+                const serverData = restRes.data;
+
+                const [congRes, statsRes] = await Promise.all([
+                    axios.get(`http://localhost:8080/api/congestion/${id}`).catch(() => ({ data: '혼잡도 이력 없음' })),
+                    axios.get(`http://localhost:8080/api/restaurants/kakaoId/${id}`).catch(() => ({ data: { averageRating: 0, reviewCount: 0, ownerUserIdx: null } }))
+                ]);
+
+                setRestaurant({
+                    ...placeData,
+                    id: serverData.restIdx || serverData.id,
+                    dataStatus: serverData.status,
+                    congestion: congRes.data === "null" ? "정보없음" : congRes.data,
+                    averageRating: statsRes.data.averageRating || 0,
+                    reviewCount: statsRes.data.reviewCount || 0,
+                    ownerUserIdx: statsRes.data.ownerUserIdx ?? null
+                });
+            } catch (error) {
+                console.error("서버 데이터 연동 실패:", error);
+                setRestaurant({ ...placeData, congestion: '연동실패' });
+            } finally {
+                isProcessing.current = false;
+                setLoading(false);
+            }
+        };
+
+        // state로 데이터가 넘어온 경우 카카오 재검색 생략
+        if (preloadedPlace) {
+            await processPlace(preloadedPlace);
+            return;
+        }
+
+        // 직접 URL 접근 또는 새로고침 시 카카오 재검색으로 폴백
+        if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+            isProcessing.current = false;
+            setLoading(false);
+            return;
+        }
+
+        const ps = new window.kakao.maps.services.Places();
         ps.keywordSearch(name, async (data, status) => {
             if (status === window.kakao.maps.services.Status.OK) {
                 const matched = data.find(place => String(place.id) === String(id));
-
                 if (matched) {
-                    try {
-                        // 1. 서버에 식당 정보 전송 (DB 등록 및 식당 엔티티 수신)
-                        const restRes = await axios.post('http://localhost:8080/api/restaurants/detail', {
-                            kakaoId: id,
-                            restName: matched.place_name,
-                            restAddress: matched.road_address_name || matched.address_name,
-                            restTel: matched.phone
-                        }, { withCredentials: true });
-
-                        // 서버가 반환한 Restaurant 엔티티 데이터
-                        const serverData = restRes.data;
-
-                        // 2. 혼잡도 정보 요청
-                        const congRes = await axios.get(`http://localhost:8080/api/congestion/${id}`);
-
-                        // 3. 평점/리뷰 수 요청 (detail 호출로 DB 등록된 뒤이므로 값이 잡힘)
-                        let stats = { averageRating: 0, reviewCount: 0, ownerUserIdx: null };
-                        try {
-                            const statsRes = await axios.get(`http://localhost:8080/api/restaurants/kakaoId/${id}`);
-                            stats = {
-                                averageRating: statsRes.data.averageRating || 0,
-                                reviewCount: statsRes.data.reviewCount || 0,
-                                ownerUserIdx: statsRes.data.ownerUserIdx ?? null
-                            };
-                        } catch (e) {
-                            console.warn("평점/리뷰 조회 실패:", e);
-                        }
-
-                        setRestaurant({
-                            ...matched,
-                            id: serverData.restIdx || serverData.id,
-                            dataStatus: serverData.status,
-                            congestion: congRes.data === "null" ? "정보없음" : congRes.data,
-                            averageRating: stats.averageRating,
-                            reviewCount: stats.reviewCount,
-                            ownerUserIdx: stats.ownerUserIdx
-                        });
-                    } catch (error) {
-                        console.error("서버 데이터 연동 실패:", error);
-                        setRestaurant({ ...matched, congestion: '연동실패' });
-                    } finally {
-                        isProcessing.current = false;
-                        setLoading(false);
-                    }
+                    await processPlace(matched);
                 } else {
                     isProcessing.current = false;
                     setLoading(false);
@@ -133,9 +133,13 @@ const RestaurantDetailPage = () => {
             fetchDbOnlyData(dbRestIdx);
             return;
         }
-        const targetName = restaurantNameFromState || restaurantDataFromState?.place_name || restaurantDataFromState?.restName;
-        if (restaurantId && targetName) {
-            fetchCombinedData(restaurantId, targetName);
+        if (restaurantId) {
+            if (restaurantDataFromState && !restaurantDataFromState.isDbOnly) {
+                fetchCombinedData(restaurantId, null, restaurantDataFromState);
+            } else {
+                const targetName = restaurantNameFromState || restaurantDataFromState?.place_name || restaurantDataFromState?.restName;
+                if (targetName) fetchCombinedData(restaurantId, targetName);
+            }
         }
     }, [restaurantId, isDbOnly, dbRestIdx, restaurantNameFromState, restaurantDataFromState, fetchCombinedData, fetchDbOnlyData]);
 
