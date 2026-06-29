@@ -330,42 +330,40 @@ const HomePage = () => {
                     return;
                 }
 
-                const bounds = new window.kakao.maps.LatLngBounds();
+                // 1단계: 카카오 데이터만으로 즉시 마커/리스트 표시
+                const tempList = allResults.map((place) => ({
+                    ...place,
+                    averageRating: 0,
+                    reviewCount: 0,
+                    congestion: '혼잡도 이력 없음'
+                }));
+                setRestaurantList(tempList);
 
-                // 모든 식당 상세(평점/리뷰수)를 한 번의 요청으로
+                if (setMapBounds) {
+                    const bounds = new window.kakao.maps.LatLngBounds();
+                    allResults.forEach(p => bounds.extend(new window.kakao.maps.LatLng(p.y, p.x)));
+                    if (!bounds.isEmpty() && mapInstance) mapInstance.setBounds(bounds);
+                }
+
+                // 2단계: bulkDetails + merchantPins 병렬 로드
                 const ids = allResults.map(p => p.id);
-                let detailsMap = {};
-                try {
-                    const response = await axios.post('/api/restaurants/bulkDetails', ids);
-                    detailsMap = response.data || {};
-                } catch (error) {
-                    console.warn("식당 상세 일괄 조회 실패:", error);
-                }
+                const [detailsResult, merchantPins] = await Promise.all([
+                    axios.post('/api/restaurants/bulkDetails', ids).catch(() => ({ data: {} })),
+                    fetchMerchantPlaces({
+                        bounds: mapInstance.getBounds(),
+                        existingKakaoIds: new Set(ids),
+                        keyword: searchType === 'keyword' ? keyword : ''
+                    })
+                ]);
 
-                // 마커는 데이터 다 받은 뒤 동기 루프로 한꺼번에 생성
-                const newList = allResults.map((place, i) => {
-                    const detail = detailsMap[place.id] || { averageRating: 0, reviewCount: 0 };
-                    const merged = {
-                        ...place,
-                        averageRating: detail.averageRating || 0,
-                        reviewCount: detail.reviewCount || 0,
-                        congestion: '혼잡도 이력 없음'
-                    };
-                    const marker = createAndDisplayMarker(merged, mapInstance, i + 1, handleListItemClick);
-                    restaurantMarkersRef.current.push(marker);
-                    bounds.extend(new window.kakao.maps.LatLng(place.y, place.x));
-                    return merged;
-                });
+                const detailsMap = detailsResult.data || {};
+                const newList = allResults.map((place) => ({
+                    ...place,
+                    averageRating: detailsMap[place.id]?.averageRating || 0,
+                    reviewCount: detailsMap[place.id]?.reviewCount || 0,
+                    congestion: '혼잡도 이력 없음'
+                }));
 
-                if (setMapBounds && !bounds.isEmpty() && mapInstance) {
-                    mapInstance.setBounds(bounds);
-                }
-
-                const merchantPins = await fetchMerchantPlaces({
-                    bounds: mapInstance.getBounds(),
-                    existingKakaoIds: new Set(ids),
-                    keyword: searchType === 'keyword' ? keyword : ''
-                });
                 const fullList = [...newList, ...(merchantPins || [])];
                 setRestaurantList(fullList);
                 fetchAndApplyCongestion(fullList);
