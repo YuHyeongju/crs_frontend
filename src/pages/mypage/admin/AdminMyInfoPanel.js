@@ -85,7 +85,7 @@ const AdminMyInfoPanel = () => {
 
   const handleConfirmWithdrawal = async () => {
     try {
-      await axios.post(`/api/users/withdraw?id=${userInfo.id}`, null, { withCredentials: true });
+      await axios.post(`/api/auth/withdraw?id=${userInfo.id}`, null, { withCredentials: true });
       
       logout();
       alert('관리자 계정 탈퇴가 완료되었습니다.');

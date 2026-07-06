@@ -6,7 +6,7 @@ import { AuthContext } from '../../../context/AuthContext';
 const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { userRole, userIdx } = useContext(AuthContext);
+    const { userRole, userIdx, isLoggedIn } = useContext(AuthContext);
 
     // 해당 가게를 소유한 상인에게만 신고 버튼 노출 (서버에서도 동일 검증)
     const canReport = userRole === 'MERCHANT'
@@ -19,8 +19,6 @@ const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState('');
     const [editRating, setEditRating] = useState(5);
-
-    const userInfo = JSON.parse(sessionStorage.getItem('user') || 'null'); 
 
     const fetchReviews = useCallback(async () => {
         if (!restIdx || restIdx === 'undefined') return;
@@ -38,7 +36,7 @@ const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
     }, [fetchReviews]);
 
     const handleStarClick = (star) => {
-        if (!userInfo) {
+        if (!isLoggedIn) {
             alert("로그인이 필요한 서비스입니다.");
             navigate('/login', { state: { from: location.pathname } });
             return;
@@ -47,16 +45,16 @@ const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
     };
 
     const submitReview = async () => {
-        if (!userInfo) return alert("로그인 후 이용 가능합니다.");
+        if (!isLoggedIn) return alert("로그인 후 이용 가능합니다.");
         if (rating === 0) return alert("별점을 선택해주세요!");
         if (!content.trim()) return alert("내용을 입력해주세요!");
 
         try {
-            await axios.post('/api/reviews/register', { 
+            await axios.post('/api/reviews/register', {
                 restIdx: Number(restIdx),
                 content: content,
                 rating: rating,
-                userIdx: userInfo.userIdx 
+                userIdx: Number(userIdx)
             });
             
             alert("리뷰가 등록되었습니다.");
@@ -86,7 +84,7 @@ const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
         if (!editContent.trim()) return alert('내용을 입력해주세요.');
         try {
             await axios.put(`/api/reviews/${reviewIdx}`, {
-                userIdx: Number(userInfo.userIdx),
+                userIdx: Number(userIdx),
                 content: editContent.trim(),
                 rating: editRating,
             });
@@ -102,7 +100,7 @@ const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
         if (!window.confirm('이 리뷰를 삭제할까요?')) return;
         try {
             await axios.delete(`/api/reviews/${reviewIdx}`, {
-                params: { userIdx: userInfo.userIdx }
+                params: { userIdx: Number(userIdx) }
             });
             fetchReviews();
             if (onReviewSubmitted) onReviewSubmitted();
@@ -150,7 +148,7 @@ const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
             </div>
 
             {/* 리뷰 작성 영역 */}
-            {rating > 0 && userInfo && (
+            {rating > 0 && isLoggedIn && (
                 <div style={{ padding: '15px', borderRadius: '12px', border: '1px solid #EAEAEA', marginBottom: '30px', backgroundColor: '#FBFBFB' }}>
                     <textarea value={content} onChange={(e) => setContent(e.target.value)}
                         placeholder="음식의 맛, 서비스, 분위기 등에 대한 솔직한 후기를 남겨주세요."
@@ -172,7 +170,7 @@ const ReviewsTab = ({ restIdx, ownerUserIdx, onReviewSubmitted }) => {
 
                 {reviews.length > 0 ? (
                     reviews.map((r) => {
-                        const isOwn = userInfo && r.userIdx === Number(userInfo.userIdx);
+                        const isOwn = isLoggedIn && r.userIdx === Number(userIdx);
                         const isEditing = editingId === r.reviewIdx;
                         return (
                             <div key={r.reviewIdx} style={{ padding: '20px 0', borderBottom: '1px solid #F0F0F0' }}>

@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { FaSearch, FaMapMarkerAlt } from 'react-icons/fa';
 import { ReactComponent as ProfileIcon } from '../../assets/Vector.svg';
 import { AuthContext } from '../../context/AuthContext'; // AuthContext 임포트
-import axios from 'axios';
 
 const Header = ({ searchTerm, setSearchTerm, onSearch, isMobile }) => {
     const navigate = useNavigate();
@@ -17,22 +16,10 @@ const Header = ({ searchTerm, setSearchTerm, onSearch, isMobile }) => {
         }
     };
 
-    // 로그아웃 버튼 클릭 시 실행될 함수
+    // 로그아웃 버튼 클릭 시 실행될 함수 (API 호출/상태 초기화/이동은 AuthContext.logout()이 처리)
     const handleLogoutClick = async () => {
-        try {
-            // 1. 백엔드 서버에 로그아웃 요청 전송 (세션 무효화)
-            await axios.post('http://localhost:8080/api/auth/logout', {}, {
-                withCredentials: true // 세션 쿠키를 함께 전송
-            });
-            console.log("백엔드 로그아웃 통신 성공");
-        } catch (error) {
-            console.error("백엔드 로그아웃 요청 실패:", error);
-        } finally {
-            // 2. 서버 응답 여부와 상관없이 리액트 앱 내의 상태를 로그아웃 처리
-            logout(); 
-            alert("로그아웃 되었습니다.");
-            navigate('/'); // 메인 페이지로 이동
-        }
+        await logout();
+        alert("로그아웃 되었습니다.");
     };
 
     return (

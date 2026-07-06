@@ -4,6 +4,18 @@ import axios from 'axios';
 
 export const AuthContext = createContext();
 
+// 컴포넌트 useEffect 안에 등록하면, 자식 컴포넌트의 마운트 시점 요청이
+// (자식 effect가 부모보다 먼저 실행되므로) 이 인터셉터 등록보다 먼저 나가버려
+// Authorization 헤더 없이 전송되는 경우가 있었다. 그 결과 새로고침 등으로
+// 보호된 라우트에 바로 진입하면 유효한 세션인데도 401로 처리되어 강제
+// 로그아웃되는 문제가 있었다. 모듈 스코프로 올려 React 렌더링 이전에
+// 항상 먼저 등록되도록 한다.
+axios.interceptors.request.use(config => {
+  const token = sessionStorage.getItem('accessToken');
+  if (token) config.headers['Authorization'] = `Bearer ${token}`;
+  return config;
+});
+
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,16 +60,6 @@ export const AuthProvider = ({ children }) => {
     clearAuth();
     navigate('/login');
   }, [clearAuth, navigate]);
-
-  // 요청마다 Authorization 헤더 자동 삽입
-  useEffect(() => {
-    const id = axios.interceptors.request.use(config => {
-      const token = sessionStorage.getItem('accessToken');
-      if (token) config.headers['Authorization'] = `Bearer ${token}`;
-      return config;
-    });
-    return () => axios.interceptors.request.eject(id);
-  }, []);
 
   // 401 응답 시 Refresh Token으로 자동 재발급
   useEffect(() => {
