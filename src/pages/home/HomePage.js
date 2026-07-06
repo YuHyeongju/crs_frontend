@@ -11,6 +11,17 @@ import axios from 'axios';
 const RESTAURANT_PANEL_WIDTH_DESKTOP = '280px';
 const MOBILE_BREAKPOINT = 768;
 
+// 상인이 입력한 가게명/주소/전화번호를 InfoWindow HTML에 그대로 삽입하면 저장형 XSS가 되므로 이스케이프한다
+const escapeHtml = (value) => {
+    if (value == null) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+};
+
 
 
 const HomePage = () => {
@@ -268,15 +279,19 @@ const HomePage = () => {
                     ? place.congestion
                     : '혼잡도 이력 없음';
 
+                const safePlaceName = escapeHtml(place.place_name);
+                const safeAddress = escapeHtml(place.road_address_name || place.address_name);
+                const safePhone = escapeHtml(place.phone || '정보 없음');
+
                 const content = `
             <div style="padding:15px; font-size:13px; min-width:220px; width:auto; line-height: 1.5; background: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
                 <strong style="font-size:15px; color:#007bff; display:block; margin-bottom:5px;">
-                    ${index}. ${place.place_name}
+                    ${index}. ${safePlaceName}
                 </strong>
                 <div style="border-top: 1px solid #eee; padding-top: 5px;">
-                    <span> 가게이름: ${place.place_name}</span><br/>
-                    <span> 주소: ${place.road_address_name || place.address_name}</span><br/>
-                    <span> 전화번호: ${place.phone || '정보 없음'}</span><br/>
+                    <span> 가게이름: ${safePlaceName}</span><br/>
+                    <span> 주소: ${safeAddress}</span><br/>
+                    <span> 전화번호: ${safePhone}</span><br/>
                     <span> 평점: ${place.averageRating}</span><br/>
                     <span> 리뷰: ${place.reviewCount}개</span><br/>
                     <span style="color: ${displayCongestion === '매우 혼잡' ? '#dc3545' :
