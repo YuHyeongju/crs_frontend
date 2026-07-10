@@ -86,7 +86,7 @@ const MerchantMyInfoPanel = () => {
   const handleConfirmWithdrawal = async () => {
     try {
       
-      await axios.post(`/api/auth/withdraw?id=${userInfo.id}`, null, { withCredentials: true });
+      await axios.post('/api/auth/withdraw', null, { withCredentials: true });
       
       logout();
       alert('회원 탈퇴가 완료되었습니다.');
