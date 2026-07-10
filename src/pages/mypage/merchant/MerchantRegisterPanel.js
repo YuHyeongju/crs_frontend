@@ -165,7 +165,7 @@ const MerchantRegisterPanel = () => {
 
     try {
       const response = await axios.post(
-        'http://localhost:8080/api/restaurants/register',
+        '/api/restaurants/register',
         formData,
         {
           headers: { 'Content-Type': 'multipart/form-data' },

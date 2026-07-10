@@ -33,8 +33,8 @@ const RestaurantDetailPage = () => {
         setLoading(true);
         try {
             const [pinRes, congRes] = await Promise.all([
-                axios.get(`http://localhost:8080/api/restaurants/restIdx/${restIdx}`),
-                axios.get(`http://localhost:8080/api/congestion/restIdx/${restIdx}`)
+                axios.get(`/api/restaurants/restIdx/${restIdx}`),
+                axios.get(`/api/congestion/restIdx/${restIdx}`)
             ]);
             const pin = pinRes.data;
             setRestaurant({
@@ -65,7 +65,7 @@ const RestaurantDetailPage = () => {
 
         const processPlace = async (placeData) => {
             try {
-                const restRes = await axios.post('http://localhost:8080/api/restaurants/detail', {
+                const restRes = await axios.post('/api/restaurants/detail', {
                     kakaoId: id,
                     restName: placeData.place_name,
                     restAddress: placeData.road_address_name || placeData.address_name,
@@ -75,8 +75,8 @@ const RestaurantDetailPage = () => {
                 const serverData = restRes.data;
 
                 const [congRes, statsRes] = await Promise.all([
-                    axios.get(`http://localhost:8080/api/congestion/${id}`).catch(() => ({ data: '혼잡도 이력 없음' })),
-                    axios.get(`http://localhost:8080/api/restaurants/kakaoId/${id}`).catch(() => ({ data: { averageRating: 0, reviewCount: 0, ownerUserIdx: null } }))
+                    axios.get(`/api/congestion/${id}`).catch(() => ({ data: '혼잡도 이력 없음' })),
+                    axios.get(`/api/restaurants/kakaoId/${id}`).catch(() => ({ data: { averageRating: 0, reviewCount: 0, ownerUserIdx: null } }))
                 ]);
 
                 setRestaurant({
@@ -147,14 +147,14 @@ const RestaurantDetailPage = () => {
     useEffect(() => {
         if (!restaurant) return;
         const restIdx = restaurant.id;
-        axios.get(`http://localhost:8080/api/restaurants/${restIdx}/menus`)
+        axios.get(`/api/restaurants/${restIdx}/menus`)
             .then(res => setMenus(res.data || []))
             .catch(() => setMenus([]));
-        axios.get(`http://localhost:8080/api/coupons/available/restaurant/${restIdx}`)
+        axios.get(`/api/coupons/available/restaurant/${restIdx}`)
             .then(res => setCoupons(res.data || []))
             .catch(() => setCoupons([]));
         if (isLoggedIn && userIdx) {
-            axios.get(`http://localhost:8080/api/rewards/balance/${userIdx}`)
+            axios.get(`/api/rewards/balance/${userIdx}`)
                 .then(res => setMyPoints(res.data?.balance ?? 0))
                 .catch(() => setMyPoints(0));
         }
@@ -164,14 +164,14 @@ const RestaurantDetailPage = () => {
         if (!restaurant) return;
         try {
             if (isDbOnly) {
-                const res = await axios.get(`http://localhost:8080/api/restaurants/restIdx/${dbRestIdx}`);
+                const res = await axios.get(`/api/restaurants/restIdx/${dbRestIdx}`);
                 setRestaurant(prev => ({
                     ...prev,
                     averageRating: res.data.averageRating ?? prev.averageRating,
                     reviewCount: res.data.reviewCount ?? prev.reviewCount,
                 }));
             } else {
-                const res = await axios.get(`http://localhost:8080/api/restaurants/kakaoId/${restaurantId}`);
+                const res = await axios.get(`/api/restaurants/kakaoId/${restaurantId}`);
                 setRestaurant(prev => ({
                     ...prev,
                     averageRating: res.data.averageRating ?? prev.averageRating,
@@ -195,7 +195,7 @@ const RestaurantDetailPage = () => {
         }
         if (!window.confirm(`'${coupon.title}' 쿠폰을 ${coupon.pointCost.toLocaleString()}P에 교환할까요?`)) return;
         try {
-            await axios.post(`http://localhost:8080/api/coupons/${coupon.couponIdx}/redeem`, null, {
+            await axios.post(`/api/coupons/${coupon.couponIdx}/redeem`, null, {
                 params: { userIdx: Number(userIdx) },
             });
             alert('쿠폰을 교환했습니다.');
@@ -211,7 +211,7 @@ const RestaurantDetailPage = () => {
             setIsBookmarked(false);
             return;
         }
-        axios.get(`http://localhost:8080/api/bookmarks/my-bookmark-list/${userIdx}`)
+        axios.get(`/api/bookmarks/my-bookmark-list/${userIdx}`)
             .then(res => {
                 const ids = (res.data || []).map(String);
                 setIsBookmarked(ids.includes(String(restaurantId)));
@@ -229,7 +229,7 @@ const RestaurantDetailPage = () => {
             const payload = isDbOnly
                 ? { userIdx, restIdx: restaurant?.id, restName: restaurant?.place_name }
                 : { userIdx, kakaoId: restaurantId, restName: restaurant?.place_name, restAddress: restaurant?.road_address_name || restaurant?.address_name, restTel: restaurant?.phone };
-            await axios.post('http://localhost:8080/api/bookmarks/toggle', payload, { withCredentials: true });
+            await axios.post('/api/bookmarks/toggle', payload, { withCredentials: true });
             setIsBookmarked(prev => !prev);
         } catch (error) {
             console.error("즐겨찾기 처리 실패:", error);

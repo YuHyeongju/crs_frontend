@@ -20,7 +20,7 @@ const MyReviewsPanel = () => {
     if (!userIdx) return;
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:8080/api/reviews/my/${userIdx}`, {
+      const res = await axios.get(`/api/reviews/my/${userIdx}`, {
         params: { page: targetPage, size: PAGE_SIZE },
       });
       setMyReviews(res.data.content || []);
@@ -63,7 +63,7 @@ const MyReviewsPanel = () => {
       return;
     }
     try {
-      await axios.put(`http://localhost:8080/api/reviews/${reviewIdx}`, {
+      await axios.put(`/api/reviews/${reviewIdx}`, {
         userIdx: Number(userIdx),
         content: editContent.trim(),
         rating: editRating,
@@ -79,7 +79,7 @@ const MyReviewsPanel = () => {
   const handleDelete = async (reviewIdx) => {
     if (!window.confirm('정말 삭제하시겠습니까?')) return;
     try {
-      await axios.delete(`http://localhost:8080/api/reviews/${reviewIdx}`, {
+      await axios.delete(`/api/reviews/${reviewIdx}`, {
         params: { userIdx: Number(userIdx) },
       });
       const remainingOnPage = myReviews.length - 1;
