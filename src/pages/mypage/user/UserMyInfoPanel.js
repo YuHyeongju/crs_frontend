@@ -127,7 +127,7 @@ const UserMyInfoPanel = () => {
     <div style={styles.container}>
       <h2 style={styles.title}>내 정보</h2>
       <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>아이디</label><input type="text" name="id" value={userInfo.id} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
-      <div style={styles.formGroup}><FaLock style={styles.icon} /><label style={styles.label}>비밀번호</label><input type="password" name="pw" placeholder="변경 시 입력" value={userInfo.password} onChange={handleChange} style={styles.input} /></div>
+      <div style={styles.formGroup}><FaLock style={styles.icon} /><label style={styles.label}>비밀번호</label><input type="password" name="pw" placeholder="변경 시 입력" value={userInfo.pw} onChange={handleChange} style={styles.input} /></div>
       <div style={styles.formGroup}><FaEnvelope style={styles.icon} /><label style={styles.label}>이메일</label><input type="email" name="email" value={userInfo.email} onChange={handleChange} style={styles.input} /></div>
       <div style={styles.formGroup}><FaUser style={styles.icon} /><label style={styles.label}>이름</label><input type="text" name="name" value={userInfo.name} style={{ ...styles.input, ...styles.inputDisabled }} disabled /></div>
       <div style={styles.formGroup}><FaPhone style={styles.icon} /><label style={styles.label}>전화번호</label><input type="tel" name="phNum" value={userInfo.phNum} onChange={handleChange} style={styles.input} /></div>

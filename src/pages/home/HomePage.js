@@ -532,7 +532,9 @@ const HomePage = () => {
                                 state: {
                                     restaurantData: r,
                                     restaurantName: r.place_name,
-                                    isBookmarked: r.isDbOnly ? false : myBookmarkIds.includes(Number(r.id))
+                                    isBookmarked: myBookmarkIds.includes(
+                                        r.isDbOnly ? `db-${r.restIdx}` : String(r.kakaoId || r.id)
+                                    )
                                 }
                             });
                         }}

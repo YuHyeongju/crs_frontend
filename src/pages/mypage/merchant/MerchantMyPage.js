@@ -111,7 +111,7 @@ const MerchantMyPage = () => {
       case 'manage':
         // 식당 ID가 있으면 수정/삭제 패널을, 없으면 선택 패널을 보여줍니다.
         return selectedStoreId ? (
-          <MerchantEditDeletePanel storeId={selectedStoreId} clearSelectedStore={handleBackToSelect} />
+          <MerchantEditDeletePanel storeId={selectedStoreId} onBack={handleBackToSelect} />
         ) : (
           <MerchantSelectPanel onSelectStore={setSelectedStoreId} />
         );

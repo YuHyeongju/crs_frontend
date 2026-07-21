@@ -52,7 +52,7 @@ function App() {
             <Route path="/merchant/register" element={<MerchantRegisterPanel />} />
             <Route path="/merchant/manage" element={
               selectedStoreId ? (
-                <MerchantEditDeletePanel storeId={selectedStoreId} clearSelectedStore={clearSelectedStore} />
+                <MerchantEditDeletePanel storeId={selectedStoreId} onBack={clearSelectedStore} />
               ) : (
                 <MerchantSelectPanel onSelectStore={handleSelectStore} />
               )
