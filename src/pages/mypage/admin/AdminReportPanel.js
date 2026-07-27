@@ -82,10 +82,10 @@ const AdminReportPanel = () => {
             reports.map((report) => (
               <tr key={report.reportIdx}>
                 <td style={styles.tableCell}>{report.reportIdx}</td>
-                <td style={styles.tableCell}>{report.reviewId}</td>
-                <td style={styles.tableCell}>{report.reporterId}</td>
+                <td style={styles.tableCell}>{report.reportedReviewIdx}</td>
+                <td style={styles.tableCell}>{report.reporterUserIdx}</td>
                 <td style={styles.tableCell}>{report.reason}</td>
-                <td style={{ ...styles.tableCell, ...styles.contentCell }}>{report.content}</td>
+                <td style={{ ...styles.tableCell, ...styles.contentCell }}>{report.reportedReviewContent}</td>
                 <td style={styles.tableCell}>
                   <span style={
                     report.status === 'PENDING' ? styles.statusPending :
